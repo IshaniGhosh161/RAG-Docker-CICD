@@ -12,11 +12,12 @@ services:
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./log:/app/log
 
   ui:
-    build: .
     image: chatbot-rag:latest
     command: streamlit run app.py --server.address=0.0.0.0 --server.port=8502
     ports:
@@ -25,6 +26,12 @@ services:
       API_BASE_URL: http://api:5000
       LOG_FILE: /app/log/ui.log
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8502/_stcore/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     volumes:
       - ./log:/app/log
     depends_on:

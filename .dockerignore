@@ -1,4 +1,13 @@
+.env
 .git
+.gitignore
+.venv
+__pycache__
+*.py[cod]
+*.log
+log/*
+.pytest_cache
+.github.git
 .github
 .venv
 __pycache__
