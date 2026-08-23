@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+log/*.log
+.env
+request.png
+response.png
+graph_image.png
+Architecture.pdf
+Chatbot Architecture.pdf

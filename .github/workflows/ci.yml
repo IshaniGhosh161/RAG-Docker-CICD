@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama and download embedding model
+        run: |
+          ollama serve > /tmp/ollama.log 2>&1 &
+          sleep 5
+          ollama pull nomic-embed-text
+
+      - name: Create FAISS index from data
+        env:
+          OLLAMA_HOST: http://127.0.0.1:11434
+        run: python index/create_index.py
+
+      - name: Compile Python files
+        run: python -m compileall -q .
+
+      - name: Run tests
+        run: python -m pytest test -q
+
+      - name: Build and start Docker Compose services
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          OLLAMA_HOST: ${{ secrets.OLLAMA_HOST || 'http://host.docker.internal:11434' }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        run: docker compose up -d --build
+
+      - name: Verify running API and Streamlit UI
+        run: |
+          for attempt in {1..30}; do
+            api_ready=false
+            ui_ready=false
+            curl --fail --silent http://localhost:5000/api/health && api_ready=true || true
+            curl --fail --silent http://localhost:8502/_stcore/health && ui_ready=true || true
+            if [ "$api_ready" = true ] && [ "$ui_ready" = true ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+
+      - name: Stop Docker Compose services
+        if: always()
+        run: docker compose down --volumes

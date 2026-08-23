@@ -1,0 +1,32 @@
+services:
+  api:
+    build: .
+    image: chatbot-rag:latest
+    command: gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 300 api:app
+    ports:
+      - "5000:5000"
+    environment:
+      MONGO_URI: ${MONGO_URI:?MONGO_URI must be set in .env}
+      LOG_FILE: /app/log/api.log
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+    volumes:
+      - ./log:/app/log
+
+  ui:
+    build: .
+    image: chatbot-rag:latest
+    command: streamlit run app.py --server.address=0.0.0.0 --server.port=8502
+    ports:
+      - "8502:8502"
+    environment:
+      API_BASE_URL: http://api:5000
+      LOG_FILE: /app/log/ui.log
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./log:/app/log
+    depends_on:
+      api:
+        condition: service_healthy
