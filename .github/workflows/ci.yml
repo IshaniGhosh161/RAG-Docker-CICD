@@ -79,4 +79,9 @@ jobs:
 
       - name: Stop Docker Compose services
         if: always()
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          OLLAMA_HOST: ${{ secrets.OLLAMA_HOST || 'http://host.docker.internal:11434' }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
         run: docker compose down --volumes
