@@ -1,7 +1,7 @@
 services:
   api:
     build: .
-    image: chatbot-rag:latest
+    image: ${DOCKERHUB_IMAGE:-chatbot-rag}:latest
     command: gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 300 api:app
     ports:
       - "5000:5000"
@@ -18,7 +18,7 @@ services:
       - ./log:/app/log
 
   ui:
-    image: chatbot-rag:latest
+    image: ${DOCKERHUB_IMAGE:-chatbot-rag}:latest
     command: streamlit run app.py --server.address=0.0.0.0 --server.port=8502
     ports:
       - "8502:8502"
