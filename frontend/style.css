@@ -1,0 +1,530 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;600;700;800&display=swap');
+
+:root {
+  --ink: #17211f;
+  --muted: #6b7772;
+  --paper: #f5f3ed;
+  --panel: #fffefa;
+  --line: #dce1d9;
+  --accent: #e6693e;
+  --accent-dark: #b94c2a;
+  --green: #42796a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 20% 10%, #fff8e5 0, transparent 35%),
+    var(--paper);
+  color: var(--ink);
+  font-family: Manrope, sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* =========================
+   AUTH
+   ========================= */
+
+.auth-panel {
+  max-width: 480px;
+  margin: 10vh auto 0;
+  padding: clamp(28px, 5vw, 56px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 12px 12px 0 #dce4da;
+}
+
+.eyebrow {
+  font: 500 11px 'DM Mono', monospace;
+  letter-spacing: 1px;
+  color: var(--accent-dark);
+  margin: 0 0 15px;
+}
+
+.auth-panel h1 {
+  font-size: clamp(34px, 6vw, 58px);
+  line-height: 1.02;
+  margin: 0 0 15px;
+  max-width: 360px;
+}
+
+.intro {
+  color: var(--muted);
+  margin-bottom: 32px;
+}
+
+.form {
+  display: grid;
+  gap: 15px;
+}
+
+.form label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.form input,
+.composer input {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 2px;
+  color: var(--ink);
+  outline-color: var(--accent);
+}
+
+button[type='submit'],
+.new-chat {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  padding: 13px 16px;
+  font-weight: 800;
+  border-radius: 2px;
+}
+
+button[type='submit']:hover,
+.new-chat:hover {
+  background: var(--accent-dark);
+}
+
+.text-button {
+  border: 0;
+  background: none;
+  color: var(--green);
+  padding: 12px 0;
+  font-weight: 700;
+  text-align: left;
+}
+
+.error {
+  color: #b43f32;
+  font-size: 13px;
+  min-height: 18px;
+}
+
+/* =========================
+   CHAT LAYOUT
+   ========================= */
+
+.chat-panel {
+  max-width: 1240px;
+  min-height: calc(100vh - 112px);
+  margin: auto;
+  display: grid;
+  grid-template-columns: 275px 1fr;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 12px 12px 0 #dce4da;
+}
+
+/* =========================
+   SIDEBAR
+   ========================= */
+
+.sidebar {
+  padding: 27px 22px;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  background: #eef1e9;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  margin-bottom: 28px;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  background: var(--ink);
+  color: #fff;
+  font-family: 'DM Mono';
+  border-radius: 50%;
+}
+
+.new-chat {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 24px;
+}
+
+.sessions {
+  display: grid;
+  gap: 6px;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.session-row .session {
+  flex: 1;
+}
+
+.session {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 11px;
+  text-align: left;
+  border-left: 3px solid transparent;
+}
+
+.session:hover,
+.session.active {
+  background: #fff;
+  border-left-color: var(--accent);
+}
+
+.delete-session {
+  border: 0;
+  background: transparent;
+  color: #b43f32;
+  font-size: 20px;
+  padding: 5px 8px;
+}
+
+.delete-session:hover {
+  background: #fff;
+}
+
+.danger-button {
+  border: 0;
+  background: none;
+  color: #b43f32;
+  padding: 12px 0;
+  text-align: left;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.logout {
+  margin-top: auto;
+}
+
+/* =========================
+   CONVERSATION
+   ========================= */
+
+.conversation {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: calc(100vh - 112px);
+}
+
+.conversation-header {
+  padding: 27px 34px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.conversation-header h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.status {
+  font: 500 11px 'DM Mono';
+  color: var(--green);
+}
+
+/* =========================
+   MESSAGES
+   ========================= */
+
+.messages {
+  padding: 32px clamp(22px, 6vw, 90px);
+  overflow: auto;
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  margin-top: 20vh;
+}
+
+.message {
+  max-width: 720px;
+  margin: 0 0 18px;
+  padding: 16px 19px;
+  line-height: 1.5;
+}
+
+.message.user {
+  margin-left: auto;
+  background: #eef1e9;
+  white-space: pre-wrap;
+}
+
+.message.assistant {
+  border-left: 3px solid var(--accent);
+  background: #fff;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+/* --------------------------------
+   IMPORTANT:
+   Reset ALL Markdown block spacing
+   -------------------------------- */
+
+.message.assistant > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Headings */
+
+.message.assistant h1,
+.message.assistant h2,
+.message.assistant h3,
+.message.assistant h4,
+.message.assistant h5,
+.message.assistant h6 {
+  margin: 0 0 10px 0;
+  padding: 0;
+  line-height: 1.25;
+}
+
+.message.assistant h1 {
+  font-size: 24px;
+}
+
+.message.assistant h2 {
+  font-size: 21px;
+}
+
+.message.assistant h3 {
+  font-size: 18px;
+}
+
+.message.assistant h4,
+.message.assistant h5,
+.message.assistant h6 {
+  font-size: 16px;
+}
+
+/* Paragraphs */
+
+.message.assistant p {
+  margin: 0 0 8px 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+.message.assistant p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists */
+
+.message.assistant ul,
+.message.assistant ol {
+  margin: 0 0 10px 0;
+  padding-left: 24px;
+  line-height: 1.5;
+}
+
+/* Individual list items */
+
+.message.assistant li {
+  margin: 0 0 5px 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+/* Markdown often generates <li><p>...</p></li> */
+
+.message.assistant li p {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+/* Nested lists */
+
+.message.assistant li > ul,
+.message.assistant li > ol {
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+/* Last list item */
+
+.message.assistant li:last-child {
+  margin-bottom: 0;
+}
+
+/* Blockquotes */
+
+.message.assistant blockquote {
+  margin: 8px 0;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+}
+
+/* Horizontal rules */
+
+.message.assistant hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Links */
+
+.message.assistant a {
+  color: var(--accent-dark);
+}
+
+/* Inline code */
+
+.message.assistant code {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.9em;
+  background: #eef1e9;
+  padding: 2px 5px;
+}
+
+/* Code blocks */
+
+.message.assistant pre {
+  overflow: auto;
+  background: #17211f;
+  color: #fff;
+  padding: 14px;
+  margin: 10px 0;
+  border-radius: 2px;
+}
+
+.message.assistant pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Tables */
+
+.message.assistant table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.message.assistant th,
+.message.assistant td {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.message.assistant th {
+  font-weight: 800;
+  background: #eef1e9;
+}
+
+/* =========================
+   COMPOSER
+   ========================= */
+
+.composer {
+  display: flex;
+  gap: 10px;
+  padding: 20px 34px;
+  border-top: 1px solid var(--line);
+}
+
+.composer input {
+  margin: 0;
+}
+
+.composer button {
+  width: 90px;
+}
+
+/* =========================
+   MOBILE
+   ========================= */
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 10px;
+  }
+
+  .chat-panel {
+    display: block;
+    min-height: calc(100vh - 20px);
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    min-height: auto;
+  }
+
+  .sessions {
+    display: flex;
+    overflow: auto;
+  }
+
+  .session {
+    white-space: nowrap;
+  }
+
+  .logout {
+    margin-top: 12px;
+  }
+
+  .conversation {
+    min-height: calc(100vh - 330px);
+  }
+
+  .conversation-header {
+    padding: 20px;
+  }
+
+  .composer {
+    padding: 14px;
+  }
+
+  .messages {
+    padding: 22px 14px;
+  }
+
+  .message {
+    max-width: 100%;
+    padding: 14px 16px;
+  }
+}

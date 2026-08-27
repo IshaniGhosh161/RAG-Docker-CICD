@@ -7,7 +7,7 @@ import uuid
 import logging
 from dotenv import load_dotenv
 
-import logging_config
+from backend import logging_config
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,25 @@ class DatabaseManager:
             logger.info("Successful login for user '%s'", username)
             return True
         logger.warning("Failed login attempt for user '%s'", username)
+        return False
+
+    def delete_user(self, username, password):
+        if not self.verify_user(username, password):
+            return False
+
+        session_ids = [
+            session['session_id']
+            for session in self.sessions_col.find(
+                {'username': username}, {'_id': 0, 'session_id': 1}
+            )
+        ]
+        if session_ids:
+            self.messages_col.delete_many({'session_id': {'$in': session_ids}})
+        self.sessions_col.delete_many({'username': username})
+        result = self.users_col.delete_one({'username': username})
+        if result.deleted_count:
+            logger.info("Deleted user '%s' and associated chat data", username)
+            return True
         return False
 
     def create_chat_session(self, username, session_name=None):

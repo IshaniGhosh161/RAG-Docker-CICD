@@ -2,13 +2,15 @@ python-dotenv
 langchain-ollama
 pypdf
 langchain_groq
-flask
-streamlit
 requests
-flask_cors
+fastapi
+uvicorn
+prometheus-fastapi-instrumentator
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation-fastapi
 pymongo
-gunicorn
-langchain
 faiss-cpu
 langchain_community
 langgraph
@@ -16,4 +18,3 @@ ratelimit
 tenacity
 langchain-tavily
 sentence-transformers
-pytest

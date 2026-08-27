@@ -2,7 +2,7 @@ services:
   api:
     build: .
     image: ${DOCKERHUB_IMAGE:-chatbot-rag}:latest
-    command: gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 300 api:app
+    command: uvicorn backend.api:app --host 0.0.0.0 --port 5000 --workers 1
     ports:
       - "5000:5000"
     environment:
@@ -12,28 +12,39 @@ services:
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      OTEL_SERVICE_NAME: rag-chat-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./log:/app/log
 
-  ui:
-    image: ${DOCKERHUB_IMAGE:-chatbot-rag}:latest
-    command: streamlit run app.py --server.address=0.0.0.0 --server.port=8502
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
-      - "8502:8502"
-    environment:
-      API_BASE_URL: http://api:5000
-      LOG_FILE: /app/log/ui.log
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8502/_stcore/health')"]
-      interval: 30s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
+      - "9090:9090"
     volumes:
-      - ./log:/app/log
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
-      api:
-        condition: service_healthy
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57.0
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+
+volumes:
+  grafana-data:

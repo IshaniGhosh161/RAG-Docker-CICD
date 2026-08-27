@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: RAG Chat dashboards
+    orgId: 1
+    folder: RAG Chat
+    type: file
+    disableDeletion: true
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

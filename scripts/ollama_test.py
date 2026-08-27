@@ -5,7 +5,7 @@ from langchain_ollama import ChatOllama
 import logging
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import logging_config
+from backend import logging_config
 
 logger = logging.getLogger(__name__)
 load_dotenv()

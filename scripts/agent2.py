@@ -10,8 +10,8 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_community.tools.tavily_search import TavilySearchResults
 from typing import Literal, List, Dict, Any
 from typing_extensions import TypedDict
-from database import DatabaseManager
-import logging_config
+from backend.database import DatabaseManager
+from backend import logging_config
 
 logger = logging.getLogger(__name__)
 from langchain_core.prompts import ChatPromptTemplate

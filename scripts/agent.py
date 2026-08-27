@@ -8,9 +8,9 @@ import logging
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import DatabaseManager
-import logging_config
-from config import ENABLE_RERANKER, FAST_MODE, RETRIEVAL_K, RERANK_TOP_N
+from backend.database import DatabaseManager
+from backend import logging_config
+from backend.config import ENABLE_RERANKER, FAST_MODE, RETRIEVAL_K, RERANK_TOP_N
 
 logger = logging.getLogger(__name__)
 

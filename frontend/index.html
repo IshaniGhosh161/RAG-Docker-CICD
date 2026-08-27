@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RAG Chat</title>
+  <link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section id="auth-view" class="auth-panel">
+      <p class="eyebrow">LOCAL KNOWLEDGE ASSISTANT</p>
+      <h1>Ask better questions.</h1>
+      <p class="intro">A focused chat workspace for your indexed documents.</p>
+      <form id="login-form" class="form">
+        <label>Username<input name="username" required autocomplete="username"></label>
+        <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <button id="show-register" class="text-button" type="button">Create an account</button>
+      <form id="register-form" class="form hidden">
+        <label>Username<input name="username" required></label>
+        <label>Email<input name="email" type="email" required></label>
+        <label>Password<input name="password" type="password" required></label>
+        <button type="submit">Create account</button>
+        <button id="show-login" class="text-button" type="button">Back to sign in</button>
+      </form>
+      <p id="auth-error" class="error"></p>
+    </section>
+
+    <section id="chat-view" class="chat-panel hidden">
+      <aside class="sidebar">
+        <div class="brand"><span class="mark">R</span><span>RAG Chat</span></div>
+        <button id="new-session" class="new-chat" type="button">+ New conversation</button>
+        <div id="sessions" class="sessions"></div>
+        <button id="delete-account" class="danger-button" type="button">Delete account</button>
+        <button id="logout" class="text-button logout" type="button">Sign out</button>
+      </aside>
+      <section class="conversation">
+        <header class="conversation-header"><div><p class="eyebrow">WORKSPACE</p><h2 id="welcome">Conversation</h2></div><span class="status">● ONLINE</span></header>
+        <div id="messages" class="messages"><div class="empty">Choose a conversation or start a new one.</div></div>
+        <form id="message-form" class="composer"><input id="message-input" placeholder="Ask about your documents..." autocomplete="off" required><button type="submit" aria-label="Send message">Send</button></form>
+      </section>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+  <script src="/frontend/app.js"></script>
+</body>
+</html>
