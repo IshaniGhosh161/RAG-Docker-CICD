@@ -2,41 +2,77 @@
   "title": "RAG Chat API Overview",
   "uid": "rag-chat-api",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 5,
   "refresh": "15s",
   "time": {"from": "now-1h", "to": "now"},
   "panels": [
     {
       "id": 1,
-      "type": "timeseries",
-      "title": "Request rate",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-      "targets": [{"expr": "sum(rate(http_requests_total{job=\"rag-chat-api\"}[5m]))", "legendFormat": "requests/sec"}],
-      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
+      "type": "stat",
+      "title": "API up",
+      "gridPos": {"h": 8, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "up{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}", "legendFormat": "API"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{"type": "value", "options": {"0": {"text": "DOWN"}, "1": {"text": "UP"}}}],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        },
+        "overrides": []
+      }
     },
     {
       "id": 2,
-      "type": "timeseries",
-      "title": "Request latency p95",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
-      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"rag-chat-api\"}[5m])) by (le))", "legendFormat": "p95"}],
-      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+      "type": "stat",
+      "title": "Total requests",
+      "description": "Total number of RAG questions asked",
+      "gridPos": {"h": 8, "w": 4, "x": 4, "y": 0},
+      "targets": [{"expr": "sum(rag_questions_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"})", "legendFormat": "questions"}],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
     {
       "id": 3,
-      "type": "timeseries",
-      "title": "Responses by status",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-      "targets": [{"expr": "sum by (status) (rate(http_requests_total{job=\"rag-chat-api\"}[5m]))", "legendFormat": "{{status}}"}],
-      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
+      "type": "stat",
+      "title": "Web search requests",
+      "description": "Number of questions that triggered a web search",
+      "gridPos": {"h": 8, "w": 4, "x": 8, "y": 0},
+      "targets": [{"expr": "sum(rag_web_search_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"})", "legendFormat": "web-search"}],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
     {
       "id": 4,
       "type": "stat",
-      "title": "API up",
+      "title": "Total token usage",
+      "description": "Total estimated tokens consumed by the RAG API",
+      "gridPos": {"h": 8, "w": 4, "x": 12, "y": 0},
+      "targets": [{"expr": "sum(increase(rag_tokens_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[1h]))", "legendFormat": "tokens"}],
+      "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Total cost",
+      "description": "Total estimated token spend in USD",
+      "gridPos": {"h": 8, "w": 4, "x": 16, "y": 0},
+      "targets": [{"expr": "sum(increase(rag_token_cost_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[1h]))", "legendFormat": "cost"}],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []}
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Token usage over time",
+      "description": "Estimated tokens used per query over time",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "sum(rate(rag_tokens_per_question_sum{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[5m])) by (job)", "legendFormat": "tokens/sec"}],
+      "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Response latency",
+      "description": "RAG answer latency (p95)",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
-      "targets": [{"expr": "up{job=\"rag-chat-api\"}", "legendFormat": "API"}],
-      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "DOWN"}, "1": {"text": "UP"}}}]}, "overrides": []}
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(rag_response_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[5m])) by (le))", "legendFormat": "p95 latency"}],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
     }
   ]
 }

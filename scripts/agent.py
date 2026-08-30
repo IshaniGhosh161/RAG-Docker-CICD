@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.database import DatabaseManager
 from backend import logging_config
 from backend.config import ENABLE_RERANKER, FAST_MODE, RETRIEVAL_K, RERANK_TOP_N
+from backend.observability import RAG_WEB_SEARCH_TOTAL
 
 logger = logging.getLogger(__name__)
 
@@ -340,12 +341,13 @@ Do not return plain text.
 
     def _web_search(self, state: GraphState):
         question = state["question"]
+        RAG_WEB_SEARCH_TOTAL.inc()
         docs = self.web_search_tool.invoke({"query": question})
-        
+
         web_content = "\n".join([d.get("content", "") for d in docs]) if isinstance(docs, list) else str(docs)
         logger.info("Web search returned %d characters", len(web_content))
         web_documents = [Document(page_content=web_content)]
-        
+
         return {
         "documents": web_documents,
         "question": question,

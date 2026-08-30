@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from backend.database import DatabaseManager
 from backend import logging_config
-from backend.observability import configure_observability
+from backend.observability import configure_observability, record_rag_metrics
 
 logger = logging.getLogger(__name__)
 db = DatabaseManager()
@@ -144,10 +144,12 @@ def create_app():
                     status_code=500, content={"error": "Agent produced an empty response"}
                 )
             db.save_chat_message(session_id, "assistant", bot_response)
+            elapsed_seconds = time.perf_counter() - started_at
+            record_rag_metrics(data.message, bot_response, elapsed_seconds)
             logger.info(
                 "Completed response generation for session %s in %.2fs (%d characters)",
                 session_id,
-                time.perf_counter() - started_at,
+                elapsed_seconds,
                 len(bot_response),
             )
             return {"bot_response": bot_response}
@@ -171,6 +173,11 @@ def create_app():
                 bot_response = "".join(response_parts)
                 if bot_response:
                     db.save_chat_message(session_id, "assistant", bot_response)
+                    record_rag_metrics(
+                        data.message,
+                        bot_response,
+                        time.perf_counter() - started_at,
+                    )
                 logger.info(
                     "Completed streaming response for session %s in %.2fs (%d chunks, %d characters)",
                     session_id,
