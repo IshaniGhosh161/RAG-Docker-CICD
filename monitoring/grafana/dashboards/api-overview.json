@@ -41,23 +41,32 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Total token usage",
-      "description": "Total estimated tokens consumed by the RAG API",
+      "title": "LLM calls",
+      "description": "Number of times the LLM was invoked",
       "gridPos": {"h": 8, "w": 4, "x": 12, "y": 0},
-      "targets": [{"expr": "sum(increase(rag_tokens_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[1h]))", "legendFormat": "tokens"}],
-      "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
+      "targets": [{"expr": "sum(rag_llm_calls_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"})", "legendFormat": "llm-calls"}],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
     {
       "id": 5,
       "type": "stat",
+      "title": "Total token usage",
+      "description": "Total estimated tokens consumed by the RAG API",
+      "gridPos": {"h": 8, "w": 4, "x": 16, "y": 0},
+      "targets": [{"expr": "sum(increase(rag_tokens_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[1h]))", "legendFormat": "tokens"}],
+      "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
+    },
+    {
+      "id": 6,
+      "type": "stat",
       "title": "Total cost",
       "description": "Total estimated token spend in USD",
-      "gridPos": {"h": 8, "w": 4, "x": 16, "y": 0},
+      "gridPos": {"h": 8, "w": 4, "x": 20, "y": 0},
       "targets": [{"expr": "sum(increase(rag_token_cost_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[1h]))", "legendFormat": "cost"}],
       "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []}
     },
     {
-      "id": 6,
+      "id": 7,
       "type": "timeseries",
       "title": "Token usage over time",
       "description": "Estimated tokens used per query over time",
@@ -66,7 +75,7 @@
       "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
     },
     {
-      "id": 7,
+      "id": 8,
       "type": "timeseries",
       "title": "Response latency",
       "description": "RAG answer latency (p95)",

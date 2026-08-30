@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.database import DatabaseManager
 from backend import logging_config
 from backend.config import ENABLE_RERANKER, FAST_MODE, RETRIEVAL_K, RERANK_TOP_N
-from backend.observability import RAG_WEB_SEARCH_TOTAL
+from backend.observability import RAG_LLM_CALLS_TOTAL, RAG_WEB_SEARCH_TOTAL
 
 logger = logging.getLogger(__name__)
 
@@ -356,6 +356,7 @@ Do not return plain text.
 
     def _call_llm(self, state: GraphState):
         question = state["question"]
+        RAG_LLM_CALLS_TOTAL.inc()
         prompt = f"Answer the user query concisely:\nQuestion: {question}\nAnswer:"
         response = self.llm.invoke(prompt)
         return {"question": question, "generation": response.content, "source": "llm"}

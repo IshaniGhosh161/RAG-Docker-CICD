@@ -44,6 +44,10 @@ RAG_WEB_SEARCH_TOTAL = Counter(
     "rag_web_search_total",
     "Number of web-search requests triggered by the RAG API",
 )
+RAG_LLM_CALLS_TOTAL = Counter(
+    "rag_llm_calls_total",
+    "Number of times the LLM was invoked by the RAG API",
+)
 TOKEN_COST_PER_1K_TOKENS = 0.005
 
 
