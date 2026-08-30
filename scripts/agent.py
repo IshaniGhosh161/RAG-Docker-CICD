@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.database import DatabaseManager
 from backend import logging_config
 from backend.config import ENABLE_RERANKER, FAST_MODE, RETRIEVAL_K, RERANK_TOP_N
-from backend.observability import RAG_LLM_CALLS_TOTAL, RAG_WEB_SEARCH_TOTAL
+from backend.observability import RAG_WEB_SEARCH_TOTAL, record_llm_usage
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +214,10 @@ class Agent:
 
         return graph
 
+    @staticmethod
+    def _record_llm_call(prompt: str | None = None, response_text: str | None = None) -> None:
+        record_llm_usage(prompt, response_text)
+
     def _build_query(self, state: GraphState):
         prompt = """
 You are an expert query rewriting assistant for a Retrieval-Augmented Generation (RAG) system.
@@ -244,10 +248,13 @@ Rewritten Query:
         question = state["question"]
         session_id = state.get("session_id", "")
         history = self._load_chat_history(session_id) if session_id else []
+        history_text = self._format_chat_history(history)
+        prompt_text = prompt.format(question=question, history=history_text)
         better_question = question_build.invoke({
             "question": question,
-            "history": self._format_chat_history(history),
+            "history": history_text,
         })
+        self._record_llm_call(prompt=prompt_text, response_text=str(better_question))
         logger.info("Built query: %s", better_question)
         return {
             "history": history, 
@@ -332,7 +339,9 @@ Do not return plain text.
         ])
         
         question_router = route_prompt | structured_llm_router
+        route_prompt_text = route_prompt.format(question=state["question"])
         source = question_router.invoke({"question": state["question"]})
+        self._record_llm_call(prompt=route_prompt_text, response_text=str(source.datasource))
         logger.info("Routing decision: %s", source.datasource)
         if source.datasource == "vectorstore" and not self.retriever:
             return "web-search"
@@ -356,9 +365,9 @@ Do not return plain text.
 
     def _call_llm(self, state: GraphState):
         question = state["question"]
-        RAG_LLM_CALLS_TOTAL.inc()
         prompt = f"Answer the user query concisely:\nQuestion: {question}\nAnswer:"
         response = self.llm.invoke(prompt)
+        self._record_llm_call(prompt=prompt, response_text=str(response.content))
         return {"question": question, "generation": response.content, "source": "llm"}
 
     def _retrieve(self, state: GraphState):
@@ -425,7 +434,9 @@ No explanation.
 
         filtered_docs = []
         for d in documents:
+            prompt_text = f"Retrieved document: {d.page_content}\nUser question: {question}"
             score = retrieval_grader.invoke({"question": question, "document": d.page_content})
+            self._record_llm_call(prompt=prompt_text, response_text=str(score.binary_score))
             logger.info("Relevance check: %s", score.binary_score)
             if score.binary_score.lower() == "yes":
                 filtered_docs.append(d)
@@ -454,7 +465,9 @@ Answer contextually:"""
 
         rag_chain = prompt | self.llm | StrOutputParser()
         context_str = format_docs(state.get("documents", []))
+        prompt_text = prompt_text.format(context=context_str, question=state["question"])
         generation = rag_chain.invoke({"context": context_str, "question": state["question"]})
+        self._record_llm_call(prompt=prompt_text, response_text=str(generation))
         logger.info("Generated answer with %d characters", len(generation))
         return {"documents": state["documents"], "question": state["question"], "generation": generation, "source": state.get("source", "")}
     
@@ -520,9 +533,17 @@ or
         question = state["question"]
 
         h_score = hallucination_grader.invoke({"documents": documents, "generation": generation})
+        self._record_llm_call(
+            prompt=f"Facts: {documents}\nAnswer: {generation}",
+            response_text=str(h_score.binary_score),
+        )
         logger.info("Hallucination check: %s", h_score.binary_score)
         if h_score.binary_score.lower() == "yes":
             a_score = answer_grader.invoke({"question": question, "generation": generation})
+            self._record_llm_call(
+                prompt=f"Question: {question}\nAnswer: {generation}",
+                response_text=str(a_score.binary_score),
+            )
             logger.info("Answer relevance check: %s", a_score.binary_score)
             if a_score.binary_score.lower() == "yes":
                 return "useful"
@@ -549,7 +570,9 @@ Rules:
             ("human", "Question: {question}")
         ])
         question_rewriter = re_write_prompt | self.llm | StrOutputParser()
+        prompt_text = re_write_prompt.format(question=state["question"])
         better_question = question_rewriter.invoke({"question": state["question"]})
+        self._record_llm_call(prompt=prompt_text, response_text=str(better_question))
         retry_count = state.get("retry_count", 0) + 1
 
         logger.info("Transformed query attempt %d: %s", retry_count, better_question)
@@ -620,9 +643,13 @@ Rules:
             )
 
         chunk_count = 0
+        streamed_content = []
         for chunk in self.llm.stream(prompt):
             content = getattr(chunk, "content", "")
             if content:
                 chunk_count += 1
+                streamed_content.append(content)
                 yield content
+        if streamed_content:
+            self._record_llm_call(prompt=prompt, response_text="".join(streamed_content))
         logger.info("Agent stream finished for session %s with %d chunks", session_id, chunk_count)

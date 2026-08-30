@@ -58,6 +58,19 @@ def estimate_tokens(text: str) -> int:
     return max(1, len(cleaned.split()))
 
 
+def record_llm_usage(prompt: str | None, response_text: str | None = None) -> None:
+    prompt_tokens = estimate_tokens(prompt or "")
+    response_tokens = estimate_tokens(response_text or "")
+    total_tokens = prompt_tokens + response_tokens
+    if not total_tokens:
+        return
+
+    total_cost = (total_tokens / 1000) * TOKEN_COST_PER_1K_TOKENS
+    RAG_TOKENS_TOTAL.inc(total_tokens)
+    RAG_TOKEN_COST_TOTAL.inc(total_cost)
+    RAG_LLM_CALLS_TOTAL.inc()
+
+
 def record_rag_metrics(question: str, response: str, latency_seconds: float) -> None:
     if not question:
         return
@@ -68,10 +81,6 @@ def record_rag_metrics(question: str, response: str, latency_seconds: float) -> 
     RAG_RESPONSE_LATENCY_SECONDS.observe(latency_seconds)
     RAG_TOKENS_PER_QUESTION.observe(total_tokens)
     RAG_TOKEN_COST_PER_QUESTION.observe(per_question_cost)
-
-    if total_tokens:
-        RAG_TOKENS_TOTAL.inc(total_tokens)
-        RAG_TOKEN_COST_TOTAL.inc(per_question_cost)
 
 
 def configure_observability(app: FastAPI) -> None:
