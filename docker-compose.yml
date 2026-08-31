@@ -1,32 +1,57 @@
 services:
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${DOCKERHUB_IMAGE:-chatbot-rag}:latest
-    command: uvicorn backend.api:app --host 0.0.0.0 --port 5000 --workers 1
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "========================================"
+        echo "Starting RAG API..."
+        echo "========================================"
+
+        exec uvicorn backend.api:app \
+          --host 0.0.0.0 \
+          --port 5000 \
+          --workers 1
+
     ports:
       - "5000:5000"
     environment:
       MONGO_URI: ${MONGO_URI:?MONGO_URI must be set in .env}
       LOG_FILE: /app/log/api.log
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
-      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      OLLAMA_HOST: ${OLLAMA_HOST:-https://ollama.com}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:?OLLAMA_API_KEY must be set in .env}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gpt-oss:20b-cloud}
+      HF_EMBEDDING_MODEL: ${HF_EMBEDDING_MODEL:-nomic-ai/nomic-embed-text-v1.5} 
+      HF_EMBEDDING_DEVICE: ${HF_EMBEDDING_DEVICE:-cpu} 
+      HF_EMBEDDING_BATCH_SIZE: ${HF_EMBEDDING_BATCH_SIZE:-8}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       OTEL_SERVICE_NAME: rag-chat-api
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+
     volumes:
       - ./log:/app/log
+    
+    depends_on: 
+      - jaeger
+
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v3.5.0
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+    depends_on:
+      - api
+
+    restart: unless-stopped
 
   grafana:
     image: grafana/grafana:12.1.1
@@ -39,6 +64,8 @@ services:
     depends_on:
       - prometheus
 
+    restart: unless-stopped
+
   jaeger:
     image: jaegertracing/all-in-one:1.57.0
     ports:
@@ -46,5 +73,8 @@ services:
       - "4317:4317"
       - "4318:4318"
 
+    restart: unless-stopped
+
 volumes:
+  # Persistent Grafana state
   grafana-data:

@@ -18,7 +18,10 @@ RUN mkdir -p /app/log
 
 EXPOSE 5000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK \
+    --interval=30s \
+    --timeout=10s \
+    --start-period=120s \
+    --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"
-
 CMD ["uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "1"]

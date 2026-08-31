@@ -18,3 +18,4 @@ ratelimit
 tenacity
 langchain-tavily
 sentence-transformers
+einops

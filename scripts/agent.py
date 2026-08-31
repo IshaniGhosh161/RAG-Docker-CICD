@@ -12,12 +12,11 @@ from backend.database import DatabaseManager
 from backend import logging_config
 from backend.config import ENABLE_RERANKER, FAST_MODE, RETRIEVAL_K, RERANK_TOP_N
 from backend.observability import RAG_WEB_SEARCH_TOTAL, record_llm_usage
-
+from backend.embeddings import NomicEmbeddings
 logger = logging.getLogger(__name__)
 
 from langchain_community.vectorstores import FAISS
-from langchain_ollama import OllamaEmbeddings, ChatOllama
-from langchain_groq import ChatGroq
+from langchain_ollama import ChatOllama
 from langchain_tavily import TavilySearch
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
@@ -29,9 +28,14 @@ from tenacity import retry, wait_exponential, stop_after_attempt
 
 load_dotenv()
 
-os.environ['OLLAMA_HOST'] = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
-os.environ["OLLAMA_API_KEY"] = os.getenv("OLLAMA_API_KEY")
-os.environ['TAVILY_API_KEY'] = os.getenv("TAVILY_API_KEY", '')
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "https://ollama.com")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20b-cloud")
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY","")
+
+HF_EMBEDDING_MODEL = os.getenv("HF_EMBEDDING_MODEL","nomic-ai/nomic-embed-text-v1.5")
+HF_EMBEDDING_DEVICE = os.getenv("HF_EMBEDDING_DEVICE","cpu")
+HF_EMBEDDING_BATCH_SIZE = int(os.getenv("HF_EMBEDDING_BATCH_SIZE","8"))
+os.environ["TAVILY_API_KEY"] = os.getenv("TAVILY_API_KEY", "")
 # os.environ['GROQ_API_KEY'] = os.getenv("GROQ_API_KEY", '')
 
 ONE_MINUTE = 60
@@ -80,7 +84,11 @@ class SentenceTransformerReranker:
 class Agent:
     def __init__(self, username: str):
         self.username = username
-        self.embedding = OllamaEmbeddings(model="nomic-embed-text")
+        self.embedding = NomicEmbeddings(
+            model_name=HF_EMBEDDING_MODEL,
+            device=HF_EMBEDDING_DEVICE,
+            batch_size=HF_EMBEDDING_BATCH_SIZE
+        )
         self.reranker = (
             SentenceTransformerReranker(model_name="cross-encoder/ms-marco-MiniLM-L-6-v2")
             if ENABLE_RERANKER
@@ -96,23 +104,37 @@ class Agent:
                 allow_dangerous_deserialization=True,
                 normalize_L2=True
             )
-            self.retriever = self.vector_store.as_retriever(
+            self.retriever = (self.vector_store.as_retriever(
                 search_kwargs={"k": RETRIEVAL_K}
-            )
+            ))
         else:
+            logger.warning(
+                "FAISS index not found at: %s",
+                faiss_path,
+            )
             self.retriever = None
+            self.vector_store = None
 
-        # self.llm = ChatGoogleGenerativeAI(
-        #     model="gemini-1.5-flash", 
-        #     temperature=0,
-        #     retry_on_failure=True,
-        #     max_retries=3
-        # )
-        self.llm = ChatOllama(model="gpt-oss:20b-cloud", max_retries=3,temperature=0,keep_alive=True)
-        self.fast_llm = ChatOllama(model="gpt-oss:20b-cloud", max_retries=3,temperature=0,keep_alive=True)
+        self.llm = ChatOllama(model=OLLAMA_MODEL, base_url=OLLAMA_HOST, max_retries=3,temperature=0,keep_alive=True)
+        self.fast_llm = ChatOllama(model=OLLAMA_MODEL, base_url=OLLAMA_HOST, max_retries=3,temperature=0,keep_alive=True)
         self.web_search_tool = TavilySearch(k=3)
         self.db = DatabaseManager()
         self.app = self._build_workflow()
+
+        logger.info(
+            "Ollama LLM configured"
+        )
+
+        logger.info(
+            "Ollama host: %s",
+            OLLAMA_HOST,
+        )
+
+        logger.info(
+            "Ollama model: %s",
+            OLLAMA_MODEL,
+        )
+
 
     def _load_chat_history(self, session_id: str, max_messages: int = 5):
         messages = self.db.get_chat_messages(session_id)
@@ -465,9 +487,9 @@ Answer contextually:"""
 
         rag_chain = prompt | self.llm | StrOutputParser()
         context_str = format_docs(state.get("documents", []))
-        prompt_text = prompt_text.format(context=context_str, question=state["question"])
+        formatted_prompt  = prompt_text.format(context=context_str, question=state["question"])
         generation = rag_chain.invoke({"context": context_str, "question": state["question"]})
-        self._record_llm_call(prompt=prompt_text, response_text=str(generation))
+        self._record_llm_call(prompt=formatted_prompt, response_text=str(generation))
         logger.info("Generated answer with %d characters", len(generation))
         return {"documents": state["documents"], "question": state["question"], "generation": generation, "source": state.get("source", "")}
     
