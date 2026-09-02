@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Free Disk Space (Ubuntu)
         run: |
@@ -21,6 +21,7 @@ jobs:
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIR"
           docker image prune --all --force
+
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -38,6 +39,8 @@ jobs:
             -r requirements.txt \
             -r requirements-dev.txt
 
+      # Create the FAISS index using Hugging Face Nomic embeddings.
+      # Ollama is NOT required here.
       - name: Create FAISS index from data
         env:
           HF_EMBEDDING_MODEL: nomic-ai/nomic-embed-text-v1.5
@@ -51,6 +54,8 @@ jobs:
       - name: Run tests
         run: python -m pytest tests -q
 
+      # Build the Docker image and start the complete stack.
+      # Hugging Face models are downloaded during Docker build.
       - name: Build and start Docker Compose services
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
@@ -61,7 +66,8 @@ jobs:
           HF_EMBEDDING_DEVICE: cpu
           HF_EMBEDDING_BATCH_SIZE: 8
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-        run: docker compose up -d --build
+        run: |
+          docker compose up -d --build
 
       - name: Verify running API and frontend
         run: |
@@ -75,42 +81,31 @@ jobs:
               --silent \
               http://localhost:5000/api/health \
               > /dev/null; then
-
               api_ready=true
-
             fi
-
 
             if curl \
               --fail \
               --silent \
               http://localhost:5000/ \
               > /dev/null; then
-
               frontend_ready=true
-
             fi
-
 
             if [ "$api_ready" = true ] && [ "$frontend_ready" = true ]; then
-
               echo "API and frontend are ready."
-
               exit 0
-
             fi
 
-
             echo "Waiting for application..."
-
             sleep 2
           done
-          
+
           echo "Application failed to become ready."
 
           docker compose ps
-
           docker compose logs
+
           exit 1
 
       - name: Log in to Docker Hub
@@ -124,7 +119,12 @@ jobs:
         if: github.event_name == 'push'
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-        run: docker tag chatbot-rag:latest "$DOCKERHUB_USERNAME/chatbot-rag:latest" && docker push "$DOCKERHUB_USERNAME/chatbot-rag:latest"
+        run: |
+          docker tag chatbot-rag:latest \
+            "$DOCKERHUB_USERNAME/chatbot-rag:latest"
+
+          docker push \
+            "$DOCKERHUB_USERNAME/chatbot-rag:latest"
 
       - name: Stop Docker Compose services
         if: always()
@@ -133,5 +133,9 @@ jobs:
           OLLAMA_HOST: https://ollama.com
           OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
           OLLAMA_MODEL: gpt-oss:20b-cloud
+          HF_EMBEDDING_MODEL: nomic-ai/nomic-embed-text-v1.5
+          HF_EMBEDDING_DEVICE: cpu
+          HF_EMBEDDING_BATCH_SIZE: 8
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-        run: docker compose down --volumes
+        run: |
+          docker compose down --volumes

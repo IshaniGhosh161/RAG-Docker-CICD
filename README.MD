@@ -42,6 +42,8 @@ To run the published Docker Hub image locally, replace `YOUR_DOCKERHUB_USERNAME`
 ```powershell
 docker pull YOUR_DOCKERHUB_USERNAME/chatbot-rag:latest
 $env:DOCKERHUB_IMAGE = "YOUR_DOCKERHUB_USERNAME/chatbot-rag"
+docker compose --env-file path to .env\.env -f path to docker compose\docker-compose.yml up --no-build -d
+OR
 docker compose up -d
 ```
 
