@@ -10,7 +10,7 @@
       "id": 1,
       "type": "stat",
       "title": "API up",
-      "gridPos": {"h": 8, "w": 4, "x": 0, "y": 0},
+      "gridPos": {"h": 7, "w": 4, "x": 0, "y": 0},
       "targets": [{"expr": "up{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}", "legendFormat": "API"}],
       "fieldConfig": {
         "defaults": {
@@ -25,7 +25,7 @@
       "type": "stat",
       "title": "Total requests",
       "description": "Total number of RAG questions asked",
-      "gridPos": {"h": 8, "w": 4, "x": 4, "y": 0},
+      "gridPos": {"h": 7, "w": 4, "x": 4, "y": 0},
       "targets": [{"expr": "sum(rag_questions_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"})", "legendFormat": "questions"}],
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
@@ -34,7 +34,7 @@
       "type": "stat",
       "title": "Web search requests",
       "description": "Number of questions that triggered a web search",
-      "gridPos": {"h": 8, "w": 4, "x": 8, "y": 0},
+      "gridPos": {"h": 7, "w": 4, "x": 8, "y": 0},
       "targets": [{"expr": "sum(rag_web_search_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"})", "legendFormat": "web-search"}],
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
@@ -43,7 +43,7 @@
       "type": "stat",
       "title": "LLM calls",
       "description": "Number of times the LLM was invoked",
-      "gridPos": {"h": 8, "w": 4, "x": 12, "y": 0},
+      "gridPos": {"h": 7, "w": 4, "x": 12, "y": 0},
       "targets": [{"expr": "sum(rag_llm_calls_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"})", "legendFormat": "llm-calls"}],
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
@@ -52,7 +52,7 @@
       "type": "stat",
       "title": "Total token usage",
       "description": "Total estimated tokens consumed by the RAG API",
-      "gridPos": {"h": 8, "w": 4, "x": 16, "y": 0},
+      "gridPos": {"h": 7, "w": 4, "x": 16, "y": 0},
       "targets": [{"expr": "sum(increase(rag_tokens_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[1h]))", "legendFormat": "tokens"}],
       "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
     },
@@ -61,7 +61,7 @@
       "type": "stat",
       "title": "Total cost",
       "description": "Total estimated token spend in USD",
-      "gridPos": {"h": 8, "w": 4, "x": 20, "y": 0},
+      "gridPos": {"h": 7, "w": 4, "x": 20, "y": 0},
       "targets": [{"expr": "sum(increase(rag_token_cost_total{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[1h]))", "legendFormat": "cost"}],
       "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []}
     },
@@ -70,7 +70,7 @@
       "type": "timeseries",
       "title": "Token usage over time",
       "description": "Estimated tokens used per query over time",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 8},
       "targets": [{"expr": "sum(rate(rag_tokens_per_question_sum{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[5m])) by (job)", "legendFormat": "tokens/sec"}],
       "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
     },
@@ -79,7 +79,7 @@
       "type": "timeseries",
       "title": "Response latency",
       "description": "RAG answer latency (p95)",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 8},
       "targets": [{"expr": "histogram_quantile(0.95, sum(rate(rag_response_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"host.docker.internal:5000\"}[5m])) by (le))", "legendFormat": "p95 latency"}],
       "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
     }

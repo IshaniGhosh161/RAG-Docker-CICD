@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.database import DatabaseManager
 from backend import logging_config
-from backend.config import ENABLE_RERANKER, FAST_MODE, RETRIEVAL_K, RERANK_TOP_N
+from backend.config import ENABLE_RERANKER, RETRIEVAL_K, RERANK_TOP_N
 from backend.observability import RAG_WEB_SEARCH_TOTAL, record_llm_usage
 from backend.embeddings import NomicEmbeddings
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ load_dotenv()
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "https://ollama.com")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20b-cloud")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY","")
+FAST_MODE= os.getenv("FAST_MODE", False)
 
 HF_EMBEDDING_MODEL = os.getenv("HF_EMBEDDING_MODEL","nomic-ai/nomic-embed-text-v1.5")
 HF_EMBEDDING_DEVICE = os.getenv("HF_EMBEDDING_DEVICE","cpu")
