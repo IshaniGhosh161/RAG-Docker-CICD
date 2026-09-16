@@ -65,9 +65,9 @@ services:
     environment:
       - GF_SMTP_ENABLED=true
       - GF_SMTP_HOST=smtp.gmail.com:587
-      - GF_SMTP_USER=${GRAFANA_SMTP_USER:-ishanighosh161@gmail.com}
-      - GF_SMTP_PASSWORD=${GRAFANA_SMTP_PASSWORD:- skvsgjledzecfqac}
-      - GF_SMTP_FROM_ADDRESS=${GRAFANA_SMTP_USER:-ishanighosh161@gmail.com}
+      - GF_SMTP_USER=${GRAFANA_SMTP_USER:-}
+      - GF_SMTP_PASSWORD=${GRAFANA_SMTP_PASSWORD:-}
+      - GF_SMTP_FROM_ADDRESS=${GRAFANA_SMTP_USER:-}
       - GF_SMTP_FROM_NAME=Grafana Alerts
     depends_on:
       - prometheus

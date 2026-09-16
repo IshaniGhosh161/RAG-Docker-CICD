@@ -474,7 +474,7 @@ class Agent:
         retry_count = state.get("retry_count", 0)
 
         if not state.get("documents"):
-            if retry_count >= 2:
+            if retry_count >= 1:
                 return "no relevant document"
 
             return "transform"
