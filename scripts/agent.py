@@ -299,6 +299,10 @@ class Agent:
             self._record_llm_call(prompt=route_prompt_text, response_text=str(source.datasource))
             logger.info("Routing decision: %s", source.datasource)
             span.set_attribute("routed_datasource", source.datasource)
+            if state.get("retry_count", 0) > 0 and source.datasource != "vectorstore":
+                logger.info("Rewritten query is not a vectorstore query; using web search")
+                span.set_attribute("routed_datasource", "web-search")
+                return "web-search"
             if source.datasource == "vectorstore" and not self.retriever:
                 return "web-search"
                 
@@ -474,7 +478,7 @@ class Agent:
         retry_count = state.get("retry_count", 0)
 
         if not state.get("documents"):
-            if retry_count >= 2:
+            if retry_count >= 1:
                 return "no relevant document"
 
             return "transform"
