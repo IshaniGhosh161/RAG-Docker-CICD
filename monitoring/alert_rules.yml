@@ -1,0 +1,11 @@
+groups:
+  - name: rag_alerts
+    rules:
+      - alert: HighResponseLatency
+        expr: rate(http_request_duration_seconds_sum[1m]) / rate(http_request_duration_seconds_count[1m]) > 60
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High Response Latency detected"
+          description: "The RAG API response latency has been above 60s for more than 1 minute."

@@ -47,6 +47,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
 
     depends_on:
       - api
@@ -61,6 +62,13 @@ services:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=smtp.gmail.com:587
+      - GF_SMTP_USER=${GRAFANA_SMTP_USER:-ishanighosh161@gmail.com}
+      - GF_SMTP_PASSWORD=${GRAFANA_SMTP_PASSWORD:- skvsgjledzecfqac}
+      - GF_SMTP_FROM_ADDRESS=${GRAFANA_SMTP_USER:-ishanighosh161@gmail.com}
+      - GF_SMTP_FROM_NAME=Grafana Alerts
     depends_on:
       - prometheus
 

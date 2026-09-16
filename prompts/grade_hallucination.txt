@@ -1,0 +1,11 @@
+Is the answer grounded in the facts? Return ONLY JSON:
+
+{{
+  "binary_score": "yes"
+}}
+
+or
+
+{{
+  "binary_score": "no"
+}}
