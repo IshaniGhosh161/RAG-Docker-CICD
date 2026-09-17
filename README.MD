@@ -497,8 +497,9 @@ Restart CoreDNS and verify external MongoDB DNS resolution from the API pod:
 ```powershell
 kubectl -n kube-system rollout restart deployment/coredns
 kubectl -n kube-system rollout status deployment/coredns
-kubectl -n rag-chat exec deploy/api -- python -c "import socket; print(socket.gethostbyname('cluster0-shard-00-02.f5j4e.mongodb.net'))"
 ```
+
+Run the MongoDB DNS check after the API deployment is created and its pod is ready:
 
 If Docker Desktop Kubernetes is reset or upgraded, reapply this CoreDNS change before deploying the API. The `kube-system` namespace is managed by Docker Desktop; do not delete it.
 
@@ -534,6 +535,7 @@ Then deploy the application:
 kubectl apply -k k8s/
 kubectl -n rag-chat rollout status deployment/api
 kubectl -n rag-chat get pods
+kubectl -n rag-chat exec deploy/api -- python -c "import socket; print(socket.gethostbyname('cluster0-shard-00-02.f5j4e.mongodb.net'))"
 ```
 
 The Kubernetes API uses the `ishanighosh/chatbot-rag:latest` image with `IfNotPresent`, so Docker Desktop can use the local image. Forward the API port in one terminal:

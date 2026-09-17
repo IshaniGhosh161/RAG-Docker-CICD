@@ -10,6 +10,7 @@ Use when the question is related to the following topics:
 - LangGraph
 - AI Agents
 - Prompt Engineering
+- FAISS
 
 2. web-search
 Use when the question requires:

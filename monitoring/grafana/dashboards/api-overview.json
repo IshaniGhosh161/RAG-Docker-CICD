@@ -176,7 +176,7 @@
       "title": "5xx error rate",
       "description": "Server-side errors over time",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 38},
-      "targets": [{"expr": "sum(rate(http_requests_total{job=\"rag-chat-api\",status=~\"5..\"}[5m]))", "legendFormat": "5xx requests"}],
+      "targets": [{"expr": "sum(rate(http_requests_total{job=\"rag-chat-api\",status=\"5xx\"}[5m])) or vector(0)", "legendFormat": "5xx requests"}],
       "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
     },
     {

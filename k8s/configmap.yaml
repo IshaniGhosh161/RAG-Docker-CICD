@@ -14,6 +14,10 @@ data:
         metrics_path: /metrics
         static_configs:
           - targets: [api:5000]
+      - job_name: mongodb
+        metrics_path: /metrics
+        static_configs:
+          - targets: [mongodb-exporter:9216]
   grafana-datasource.yml: |
     apiVersion: 1
     datasources:

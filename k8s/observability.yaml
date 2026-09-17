@@ -1,6 +1,54 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: mongodb-exporter
+  namespace: rag-chat
+  labels:
+    app: mongodb-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb-exporter
+  template:
+    metadata:
+      labels:
+        app: mongodb-exporter
+    spec:
+      containers:
+        - name: mongodb-exporter
+          image: percona/mongodb_exporter:0.40.0
+          args:
+            - --mongodb.uri=$(MONGODB_URI)
+            - --no-mongodb.direct-connect
+            - --mongodb.collstats-colls=chatbot.users,chatbot.sessions,chatbot.messages
+            - --collector.collstats
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: MONGO_URI
+          ports:
+            - name: metrics
+              containerPort: 9216
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-exporter
+  namespace: rag-chat
+spec:
+  selector:
+    app: mongodb-exporter
+  ports:
+    - name: metrics
+      port: 9216
+      targetPort: metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: jaeger
   namespace: rag-chat
   labels:
