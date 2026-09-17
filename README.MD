@@ -26,48 +26,7 @@ If any of those fail, install the missing tool first.
 ## 2) Clone the repo and create a virtual environment
 
 ```powershell
-# RAG Chatbot Project Setup
-
-This project is a FastAPI + FAISS + Ollama RAG application with MongoDB user/session storage, Prometheus/Grafana monitoring, and a simple frontend. To complete the project successfully, you must set up all required services and environment variables before starting the app.
-
-## 1) Prerequisites
-
-Install the following before continuing:
-
-- Python 3.10+ (3.11 is recommended)
-- Git
-- Docker Desktop with Docker Compose enabled
-- A MongoDB database, preferably MongoDB Atlas
-- An Ollama model endpoint or cloud account
-- A Tavily account for web search
-
-For Windows PowerShell, use commands like this:
-
-```powershell
-python --version
-docker --version
-docker compose version
-```
-
-If any of those fail, install the missing tool first.
-
-## 2) Clone the repo and create a virtual environment
-
-```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
-If PowerShell blocks activation, run:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-```
-
-## 3) Install Python dependencies
-
-This project depends on `torch`, `sentence-transformers`, FAISS, FastAPI, MongoDB, and LangChain packages. Use the commands below in the activated virtual environment:
 .\.venv\Scripts\Activate.ps1
 ```
 
@@ -218,141 +177,7 @@ This script:
 - creates the FAISS index under `index/faiss_index/`
 
 If this step fails, check the PDF folder and your environment values.
-Do not use `--no-cache-dir` for local development; the reranker and embedding packages are large and repeated installs will download them again.
 
-## 4) Get the required API keys and connection strings
-
-You need these values before the app can start.
-
-### MongoDB URI (`MONGO_URI`)
-
-Create or use a MongoDB Atlas cluster, then get the connection string from Atlas:
-
-1. Go to MongoDB Atlas
-2. Create a cluster if needed
-3. Click "Database" > "Connect"
-4. Choose "Drivers"
-5. Copy the connection string
-6. Replace `<password>` with your actual MongoDB password
-
-Example:
-
-```env
-MONGO_URI=mongodb+srv://myuser:MyStrongPassword@cluster0.xxxxxx.mongodb.net/chatbot?retryWrites=true&w=majority
-```
-
-Important:
-
-- Your database user must exist in Atlas
-- Add your local machine IP and your Docker host IP to Atlas Network Access if using Atlas
-- The app uses MongoDB for users, chat sessions, and message storage
-
-### Ollama settings (`OLLAMA_HOST`, `OLLAMA_API_KEY`, `OLLAMA_MODEL`)
-
-The repo is configured to use Ollama for the LLM.
-
-- Default host: `https://ollama.com`
-- Default model: `gpt-oss:20b-cloud`
-- If you use the hosted Ollama service, get an API key from the Ollama dashboard
-- If you run Ollama locally, set `OLLAMA_HOST` to your local URL, for example `http://localhost:11434` or `http://host.docker.internal:11434`
-
-Example values:
-
-```env
-OLLAMA_HOST=https://ollama.com
-OLLAMA_API_KEY=your_ollama_api_key_here
-OLLAMA_MODEL=gpt-oss:20b-cloud
-```
-
-For local Ollama, this is also valid:
-
-```env
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_API_KEY=
-OLLAMA_MODEL=llama3.1:8b
-```
-
-Note: the Docker Compose file currently requires `OLLAMA_API_KEY` to be set. For Docker or CI runs, use a valid Ollama cloud key. For local-only development, set `OLLAMA_HOST` to your local Ollama URL and still provide a non-empty value in the compose environment if required by your setup.
-
-### Tavily API key (`TAVILY_API_KEY`)
-
-This app uses Tavily for web search during retrieval. Get a key from:
-
-- https://app.tavily.com
-
-Example:
-
-```env
-TAVILY_API_KEY=your_tavily_api_key_here
-```
-
-### Optional settings
-
-```env
-LOG_LEVEL=INFO
-LOG_FILE=api.log
-HF_EMBEDDING_MODEL=nomic-ai/nomic-embed-text-v1.5
-HF_EMBEDDING_DEVICE=cpu
-HF_EMBEDDING_BATCH_SIZE=8
-```
-
-## 5) Create the `.env` file
-
-Create a file named `.env` in the project root and add the values below:
-
-```env
-MONGO_URI=mongodb+srv://myuser:MyStrongPassword@cluster0.xxxxxx.mongodb.net/chatbot?retryWrites=true&w=majority
-OLLAMA_HOST=https://ollama.com
-OLLAMA_API_KEY=your_ollama_api_key_here
-OLLAMA_MODEL=gpt-oss:20b-cloud
-TAVILY_API_KEY=your_tavily_api_key_here
-LOG_LEVEL=INFO
-LOG_FILE=api.log
-HF_EMBEDDING_MODEL=nomic-ai/nomic-embed-text-v1.5
-HF_EMBEDDING_DEVICE=cpu
-HF_EMBEDDING_BATCH_SIZE=8
-```
-
-This project reads `.env` automatically with `python-dotenv`.
-
-## 6) Prepare your document data
-
-The indexing script expects PDF files in the `data/` folder.
-
-1. Create or use the `data` directory in the repo root
-2. Put your PDF documents there
-3. The script will read all `.pdf` files in `data/`
-
-Example:
-
-```powershell
-mkdir data
-```
-
-Then place your PDFs inside `data/`.
-
-## 7) Build the FAISS index
-
-Before the agent can answer questions from documents, you must create the vector index.
-
-```powershell
-python indexing/create_index.py
-```
-
-This script:
-
-- loads every PDF in `data/`
-- splits the content into chunks
-- embeds each chunk with the configured Nomic model
-- creates the FAISS index under `index/faiss_index/`
-
-If this step fails, check the PDF folder and your environment values.
-
-## 8) Run the API locally
-
-Start the FastAPI app in the virtual environment:
-
-```powershell
 ## 8) Run the API locally
 
 Start the FastAPI app in the virtual environment:
@@ -380,45 +205,7 @@ The app exposes a frontend and backend endpoints such as:
 Once the API is running, run:
 
 ```powershell
-```
-
-Then open:
-
-- API: http://localhost:5000
-- Swagger docs: http://localhost:5000/docs
-- Metrics: http://localhost:5000/metrics
-
-The app exposes a frontend and backend endpoints such as:
-
-- `/api/health`
-- `/api/register`
-- `/api/login`
-- `/api/sessions`
-- `/api/sessions/{session_id}/generate`
-
-## 9) Run tests
-
-Once the API is running, run:
-
-```powershell
 pytest tests
-```
-
-or
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests -q
-```
-
-The tests expect the app to be running on `http://localhost:5000` by default.
-
-## 10) Run with Docker Compose
-
-This project also includes Docker Compose for the API, Prometheus, Grafana, and Jaeger.
-
-From the project root:
-
-```powershell
 ```
 
 or
@@ -494,71 +281,9 @@ The test suite checks:
 This project publishes a Docker image to Docker Hub during GitHub Actions runs on pushes to `main` or `master`.
 
 To pull the published image locally:
-```
-
-The stack exposes:
-
-- App: http://localhost:5000
-- Swagger docs: http://localhost:5000/docs
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000
-- Jaeger UI: http://localhost:16686
-
-Docker Compose reads environment values from `.env` and requires `MONGO_URI` and `OLLAMA_API_KEY` to be present in the environment.
-
-To stop it:
-
-```powershell
-docker compose down
-```
-
-## 11) Test suite
-
-The repository includes API tests in `tests/test_api.py`. The workflow runs them with:
-
-```powershell
-python -m pytest tests -q
-```
-
-or
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests -q
-```
-
-The tests expect the app to be running on `http://localhost:5000` unless you set `API_BASE_URL` before running them.
-
-Example:
-
-```powershell
-$env:API_BASE_URL = "http://localhost:5000"
-pytest tests
-```
-
-The test suite checks:
-
-- health endpoint
-- metrics endpoint
-- frontend/static file serving
-- error handling
-- CORS headers
-- registration/login flow
-- session creation and message saving
-- generation endpoint and streaming endpoint
-
-## 12) Docker pull from Docker Hub
-
-This project publishes a Docker image to Docker Hub during GitHub Actions runs on pushes to `main` or `master`.
-
-To pull the published image locally:
 
 ```powershell
 docker pull YOUR_DOCKERHUB_USERNAME/chatbot-rag:latest
-```
-
-Then run it with your environment file:
-
-```powershell
 ```
 
 Then run it with your environment file:
