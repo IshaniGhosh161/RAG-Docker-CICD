@@ -25,7 +25,15 @@ from backend.config import (
     HF_EMBEDDING_BATCH_SIZE,
     TAVILY_API_KEY
 )
-from backend.observability import RAG_WEB_SEARCH_TOTAL, record_llm_usage
+from backend.observability import (
+    RAG_WEB_SEARCH_TOTAL,
+    RAG_ROUTE_DECISIONS_TOTAL,
+    RAG_RETRIEVAL_DOCUMENTS_COUNT,
+    RAG_RETRIEVAL_RELEVANCE_SCORE,
+    measure_stage_latency,
+    observe_stage_latency,
+    record_llm_usage,
+)
 from backend.embeddings import NomicEmbeddings
 logger = logging.getLogger(__name__)
 
@@ -247,6 +255,7 @@ class Agent:
     def _record_llm_call(prompt: str | None = None, response_text: str | None = None) -> None:
         record_llm_usage(prompt, response_text)
 
+    @observe_stage_latency("build_query")
     def _build_query(self, state: GraphState):
         with self.tracer.start_as_current_span("build_query") as span:
             prompt = self._load_prompt('build_query.txt')
@@ -272,6 +281,7 @@ class Agent:
                 "retry_count": state.get("retry_count", 0)
             }
 
+    @observe_stage_latency("route")
     def _route_question(self, state: GraphState):
         with self.tracer.start_as_current_span("route_question") as span:
             class RouteQuery(BaseModel):
@@ -302,12 +312,16 @@ class Agent:
             if state.get("retry_count", 0) > 0 and source.datasource != "vectorstore":
                 logger.info("Rewritten query is not a vectorstore query; using web search")
                 span.set_attribute("routed_datasource", "web-search")
+                RAG_ROUTE_DECISIONS_TOTAL.labels(route="web-search").inc()
                 return "web-search"
             if source.datasource == "vectorstore" and not self.retriever:
+                RAG_ROUTE_DECISIONS_TOTAL.labels(route="web-search").inc()
                 return "web-search"
-                
+
+            RAG_ROUTE_DECISIONS_TOTAL.labels(route=source.datasource).inc()
             return source.datasource
 
+    @observe_stage_latency("web_search")
     def _web_search(self, state: GraphState):
         with self.tracer.start_as_current_span("web_search"):
             question = state["question"]
@@ -324,6 +338,7 @@ class Agent:
             "source": "web-search"
         }
 
+    @observe_stage_latency("llm")
     def _call_llm(self, state: GraphState):
         with self.tracer.start_as_current_span("call_llm"):
             question = state["question"]
@@ -332,15 +347,19 @@ class Agent:
             self._record_llm_call(prompt=prompt, response_text=str(response.content))
             return {"question": question, "generation": response.content, "source": "llm"}
 
+    @observe_stage_latency("retrieval")
     def _retrieve(self, state: GraphState):
         with self.tracer.start_as_current_span("retrieve"):
             question = state["question"]
             if not self.retriever:
+                RAG_RETRIEVAL_DOCUMENTS_COUNT.observe(0)
                 return {"documents": [], "question": question, "source": "vectorstore"}
             documents = self.retriever.invoke(question)
+            RAG_RETRIEVAL_DOCUMENTS_COUNT.observe(len(documents))
             logger.info("Retrieved %d documents from vectorstore for question: %s", len(documents), question)
             return {"documents": documents, "question": question, "source": "vectorstore","retry_count": state.get("retry_count",0)}
 
+    @observe_stage_latency("rerank")
     def _rerank_documents(self, state: GraphState):
         with self.tracer.start_as_current_span("rerank") as span:
             question = state["question"]
@@ -380,6 +399,7 @@ class Agent:
                 "retry_count": state.get("retry_count", 0),
             }
 
+    @observe_stage_latency("grade_documents")
     def _grade_documents(self, state: GraphState):
         with self.tracer.start_as_current_span("grade_documents") as span:
             class GradeDocument(BaseModel):
@@ -458,6 +478,7 @@ class Agent:
                         filtered_docs.append(doc)
                 
                 logger.info("Graded %d documents, %d passed", len(documents), len(filtered_docs))
+                RAG_RETRIEVAL_RELEVANCE_SCORE.observe(len(filtered_docs))
                 span.set_attribute("grading.documents_count", len(documents))
                 span.set_attribute("grading.passed_count", len(filtered_docs))
                 span.set_attribute(
@@ -485,6 +506,7 @@ class Agent:
 
         return "found relevant document"
 
+    @observe_stage_latency("generate")
     def _generate(self, state: GraphState):
         with self.tracer.start_as_current_span("generate"):
             prompt_text = self._load_prompt('generate_answer.txt')
@@ -543,7 +565,8 @@ class Agent:
             generation = state.get("generation", "")
             question = state["question"]
 
-            h_score = hallucination_grader.invoke({"documents": documents, "generation": generation})
+            with measure_stage_latency("hallucination"):
+                h_score = hallucination_grader.invoke({"documents": documents, "generation": generation})
             self._record_llm_call(
                 prompt=f"Facts: {documents}\nAnswer: {generation}",
                 response_text=str(h_score.binary_score),
@@ -551,7 +574,8 @@ class Agent:
             logger.info("Hallucination check: %s", h_score.binary_score)
             span.set_attribute("grading.hallucination", str(h_score.binary_score))
             if h_score.binary_score.lower() == "yes":
-                a_score = answer_grader.invoke({"question": question, "generation": generation})
+                with measure_stage_latency("relevance"):
+                    a_score = answer_grader.invoke({"question": question, "generation": generation})
                 self._record_llm_call(
                     prompt=f"Question: {question}\nAnswer: {generation}",
                     response_text=str(a_score.binary_score),
