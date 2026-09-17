@@ -191,11 +191,11 @@
     {
       "id": 20,
       "type": "timeseries",
-      "title": "Retrieved documents per query",
-      "description": "Average retrieved documents and average relevant documents per query",
+      "title": "Reranked and relevant documents per query",
+      "description": "Average documents remaining after reranking compared with average relevant documents",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 46},
       "targets": [
-        {"expr": "sum(rate(rag_retrieval_documents_count_sum{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) / sum(rate(rag_retrieval_documents_count_count{job=\"rag-chat-api\",instance=\"api:5000\"}[5m]))", "legendFormat": "retrieved docs/query"},
+        {"expr": "(sum(rate(rag_reranked_documents_count_sum{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) / sum(rate(rag_reranked_documents_count_count{job=\"rag-chat-api\",instance=\"api:5000\"}[5m]))) unless on() (sum(rate(rag_reranked_documents_count_count{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) == 0) or vector(0)", "legendFormat": "reranked docs/query"},
         {"expr": "sum(rate(rag_retrieval_relevance_score_sum{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) / sum(rate(rag_retrieval_relevance_score_count{job=\"rag-chat-api\",instance=\"api:5000\"}[5m]))", "legendFormat": "relevant docs/query"}
       ],
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}

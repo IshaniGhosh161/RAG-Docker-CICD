@@ -172,6 +172,11 @@ RAG_RETRIEVAL_DOCUMENTS_COUNT = Histogram(
     "Number of documents returned by FAISS retrieval for a query",
     buckets=(0, 1, 2, 3, 5, 10, 20, 50),
 )
+RAG_RERANKED_DOCUMENTS_COUNT = Histogram(
+    "rag_reranked_documents_count",
+    "Number of documents remaining after reranking for a query",
+    buckets=(0, 1, 2, 3, 5, 10, 20, 50),
+)
 RAG_RETRIEVAL_RELEVANCE_SCORE = Histogram(
     "rag_retrieval_relevance_score",
     "Number of relevant documents kept after grading for a query",
@@ -183,6 +188,7 @@ RAG_STAGE_LATENCY_SECONDS = Histogram(
     labelnames=("stage",),
     buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120),
 )
+RAG_RERANKED_DOCUMENTS_COUNT.observe(0)
 for stage_name in (
     "build_query",
     "route",

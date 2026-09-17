@@ -29,6 +29,7 @@ from backend.observability import (
     RAG_WEB_SEARCH_TOTAL,
     RAG_ROUTE_DECISIONS_TOTAL,
     RAG_RETRIEVAL_DOCUMENTS_COUNT,
+    RAG_RERANKED_DOCUMENTS_COUNT,
     RAG_RETRIEVAL_RELEVANCE_SCORE,
     measure_stage_latency,
     observe_stage_latency,
@@ -391,6 +392,7 @@ class Agent:
                     for index, document in enumerate(documents)
                 ),
             )
+            RAG_RERANKED_DOCUMENTS_COUNT.observe(len(documents))
 
             return {
                 "documents": documents,
