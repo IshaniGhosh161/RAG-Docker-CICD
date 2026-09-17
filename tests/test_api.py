@@ -102,6 +102,18 @@ def test_validation_errors():
     assert api_request("POST", "/api/sessions/unknown/generate-stream", json={}).status_code == 400
 
 
+def test_sessions_requires_username():
+    response = api_request("GET", "/api/sessions")
+    assert response.status_code == 400
+    assert response.json() == {"error": "Username is required"}
+
+
+def test_unknown_session_delete_returns_not_found():
+    response = api_request("DELETE", f"/api/sessions/{uuid.uuid4()}")
+    assert response.status_code == 404
+    assert response.json() == {"error": "Session not found"}
+
+
 def test_duplicate_registration_and_invalid_login():
     suffix = uuid.uuid4().hex[:8]
     user = {
@@ -140,6 +152,28 @@ def test_session_and_message_lifecycle(user_and_session):
     assert deleted.status_code == 200
     assert api_request("GET", f"/api/sessions/{session_id}/messages").json() == []
     assert api_request("DELETE", f"/api/sessions/{session_id}").status_code == 404
+
+
+def test_session_without_name_gets_default_name(user_and_session):
+    user, _ = user_and_session
+    response = api_request(
+        "POST",
+        "/api/sessions",
+        json={"username": user["username"]},
+    )
+    assert response.status_code == 201
+    session_id = response.json()["session_id"]
+
+    sessions = api_request(
+        "GET",
+        "/api/sessions",
+        params={"username": user["username"]},
+    )
+    assert sessions.status_code == 200
+    created_session = next(
+        item for item in sessions.json() if item["session_id"] == session_id
+    )
+    assert created_session["session_name"].startswith("Chat ")
 
 
 def test_account_deletion_requires_correct_password_and_cascades_data():
@@ -200,6 +234,11 @@ def test_generation_endpoint(user_and_session):
     )
     assert response.status_code == 200, response.text
     assert response.json().get("bot_response")
+
+    metrics = api_request("GET", "/metrics")
+    assert metrics.status_code == 200
+    assert 'rag_stage_latency_seconds_count{stage="build_query"}' in metrics.text
+    assert 'rag_stage_latency_seconds_count{stage="generate"}' in metrics.text
 
 
 def test_streaming_generation_endpoint(user_and_session):
