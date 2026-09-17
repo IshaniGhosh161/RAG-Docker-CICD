@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: rag-chat
+  labels:
+    app: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: ishanighosh/chatbot-rag:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          ports:
+            - name: http
+              containerPort: 5000
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: MONGO_URI
+            - name: OLLAMA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: OLLAMA_API_KEY
+            - name: TAVILY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: TAVILY_API_KEY
+            - name: LOG_FILE
+              value: /app/log/api.log
+            - name: LOG_LEVEL
+              value: INFO
+            - name: OLLAMA_HOST
+              value: https://ollama.com
+            - name: OLLAMA_MODEL
+              value: gpt-oss:20b-cloud
+            - name: HF_EMBEDDING_MODEL
+              value: nomic-ai/nomic-embed-text-v1.5
+            - name: HF_EMBEDDING_DEVICE
+              value: cpu
+            - name: HF_EMBEDDING_BATCH_SIZE
+              value: "8"
+            - name: FAST_MODE
+              value: "true"
+            - name: OTEL_SERVICE_NAME
+              value: rag-chat-api
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://jaeger:4318/v1/traces
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          volumeMounts:
+            - name: api-log
+              mountPath: /app/log
+      volumes:
+        - name: api-log
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: rag-chat
+spec:
+  selector:
+    app: api
+  ports:
+    - name: http
+      port: 5000
+      targetPort: http
+  type: LoadBalancer
