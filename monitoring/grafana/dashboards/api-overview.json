@@ -27,7 +27,7 @@
       "description": "Total number of RAG questions asked",
       "gridPos": {"h": 7, "w": 4, "x": 4, "y": 0},
       "targets": [{"expr": "sum(rag_questions_total{job=\"rag-chat-api\",instance=\"api:5000\"})", "legendFormat": "questions"}],
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
     },
     {
       "id": 3,
@@ -36,7 +36,7 @@
       "description": "Number of questions that triggered a web search",
       "gridPos": {"h": 7, "w": 4, "x": 8, "y": 0},
       "targets": [{"expr": "sum(rag_web_search_total{job=\"rag-chat-api\",instance=\"api:5000\"})", "legendFormat": "web-search"}],
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
     },
     {
       "id": 4,
@@ -54,7 +54,7 @@
       "description": "Total estimated tokens consumed by the RAG API",
       "gridPos": {"h": 7, "w": 4, "x": 16, "y": 0},
       "targets": [{"expr": "sum(increase(rag_tokens_total{job=\"rag-chat-api\",instance=\"api:5000\"}[1h]))", "legendFormat": "tokens"}],
-      "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
+      "fieldConfig": {"defaults": {"unit": "tokens", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 10000}]}}, "overrides": []}
     },
     {
       "id": 6,
@@ -105,7 +105,7 @@
       "description": "Current number of users in chatbot.users",
       "gridPos": {"h": 6, "w": 6, "x": 6, "y": 15},
       "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"users\"}", "legendFormat": "users"}],
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
     },
     {
       "id": 11,
@@ -114,7 +114,7 @@
       "description": "Current number of sessions in chatbot.sessions",
       "gridPos": {"h": 6, "w": 6, "x": 12, "y": 15},
       "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"sessions\"}", "legendFormat": "sessions"}],
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
     },
     {
       "id": 12,
@@ -123,7 +123,7 @@
       "description": "Current number of messages in chatbot.messages",
       "gridPos": {"h": 6, "w": 6, "x": 18, "y": 15},
       "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"messages\"}", "legendFormat": "messages"}],
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 100}]}}, "overrides": []}
     },
     {
       "id": 13,
@@ -134,13 +134,13 @@
       "targets": [{"expr": "sum(mongodb_collstats_storageStats_size{job=\"mongodb\",database=\"chatbot\",collection=~\"users|sessions|messages\"})", "legendFormat": "application data"}],
       "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}
     },
-    { 
-      "id": 14, 
-      "type": "timeseries", 
-      "title": "Chatbot Messages", 
-      "description": "Number of messages currently stored in chatbot.messages over time", 
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21}, 
-      "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"messages\"}", "legendFormat": "messages"}], 
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Chatbot Messages",
+      "description": "Number of messages currently stored in chatbot.messages over time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+      "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"messages\"}", "legendFormat": "messages"}],
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
     {
@@ -207,16 +207,7 @@
       "description": "95th percentile time spent in each agent stage",
       "gridPos": {"h": 9, "w": 24, "x": 0, "y": 54},
       "targets": [
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"build_query\"}[5m]))), \"stage\", \"build_query\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"build_query\", \"\", \"\")", "legendFormat": "build_query"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"route\"}[5m]))), \"stage\", \"route\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"route\", \"\", \"\")", "legendFormat": "route"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"web_search\"}[5m]))), \"stage\", \"web_search\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"web_search\", \"\", \"\")", "legendFormat": "web_search"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"llm\"}[5m]))), \"stage\", \"llm\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"llm\", \"\", \"\")", "legendFormat": "llm"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"retrieval\"}[5m]))), \"stage\", \"retrieval\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"retrieval\", \"\", \"\")", "legendFormat": "retrieval"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"rerank\"}[5m]))), \"stage\", \"rerank\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"rerank\", \"\", \"\")", "legendFormat": "rerank"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"grade_documents\"}[5m]))), \"stage\", \"grade_documents\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"grade_documents\", \"\", \"\")", "legendFormat": "grade_documents"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"generate\"}[5m]))), \"stage\", \"generate\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"generate\", \"\", \"\")", "legendFormat": "generate"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"hallucination\"}[5m]))), \"stage\", \"hallucination\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"hallucination\", \"\", \"\")", "legendFormat": "hallucination"},
-        {"expr": "label_replace(histogram_quantile(0.95, sum by (le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\",stage=\"relevance\"}[5m]))), \"stage\", \"relevance\", \"\", \"\") or on(stage) label_replace(vector(0), \"stage\", \"relevance\", \"\", \"\")", "legendFormat": "relevance"}
+        {"expr": "histogram_quantile(0.95, sum by (stage, le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])))", "legendFormat": "{{stage}}"}
       ],
       "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
     }

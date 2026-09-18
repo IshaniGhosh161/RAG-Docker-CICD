@@ -33,6 +33,7 @@ from backend.observability import (
     RAG_RETRIEVAL_RELEVANCE_SCORE,
     measure_stage_latency,
     observe_stage_latency,
+    record_rag_stage,
     record_llm_usage,
 )
 from backend.embeddings import NomicEmbeddings
@@ -60,6 +61,7 @@ MAX_CALLS_PER_MINUTE = 15
 
 class GraphState(TypedDict):
     question: str
+    original_question: str
     generation: str
     documents: List[Document]
     history: List[dict]
@@ -256,6 +258,28 @@ class Agent:
     def _record_llm_call(prompt: str | None = None, response_text: str | None = None) -> None:
         record_llm_usage(prompt, response_text)
 
+    @staticmethod
+    def _document_payload(document: Document) -> dict:
+        return {
+            "content": document.page_content,
+            "metadata": document.metadata,
+        }
+
+    @classmethod
+    def _documents_payload(cls, documents: list[Document]) -> list[dict]:
+        return [cls._document_payload(document) for document in documents]
+
+    @staticmethod
+    def _record_stage(stage: str, state: GraphState, **payload) -> None:
+        record_rag_stage(
+            stage,
+            {
+                "session_id": state.get("session_id", ""),
+                "question": state.get("original_question", state.get("question", "")),
+                **payload,
+            },
+        )
+
     @observe_stage_latency("build_query")
     def _build_query(self, state: GraphState):
         with self.tracer.start_as_current_span("build_query") as span:
@@ -274,10 +298,16 @@ class Agent:
             })
             self._record_llm_call(prompt=prompt_text, response_text=str(better_question))
             logger.info("Built query: %s", better_question)
-            span.set_attribute("rewritten_query", str(better_question))
+            self._record_stage(
+                "build_query",
+                state,
+                transformed_query=str(better_question),
+                history=history,
+            )
             return {
                 "history": history, 
                 "question": better_question, 
+                "original_question": state.get("original_question", question),
                 "session_id": session_id,
                 "retry_count": state.get("retry_count", 0)
             }
@@ -309,6 +339,12 @@ class Agent:
             
             self._record_llm_call(prompt=route_prompt_text, response_text=str(source.datasource))
             logger.info("Routing decision: %s", source.datasource)
+            self._record_stage(
+                "route",
+                state,
+                transformed_query=state["question"],
+                route=source.datasource,
+            )
             span.set_attribute("routed_datasource", source.datasource)
             if state.get("retry_count", 0) > 0 and source.datasource != "vectorstore":
                 logger.info("Rewritten query is not a vectorstore query; using web search")
@@ -332,6 +368,13 @@ class Agent:
             web_content = "\n".join([d.get("content", "") for d in docs]) if isinstance(docs, list) else str(docs)
             logger.info("Web search returned %d characters", len(web_content))
             web_documents = [Document(page_content=web_content)]
+            self._record_stage(
+                "web_search",
+                state,
+                transformed_query=question,
+                output=docs,
+                web_content=web_content,
+            )
 
             return {
             "documents": web_documents,
@@ -346,6 +389,11 @@ class Agent:
             prompt = f"Answer the user query concisely:\nQuestion: {question}\nAnswer:"
             response = self.llm.invoke(prompt)
             self._record_llm_call(prompt=prompt, response_text=str(response.content))
+            self._record_stage(
+                "call_llm",
+                state,
+                transformed_query=question,
+            )
             return {"question": question, "generation": response.content, "source": "llm"}
 
     @observe_stage_latency("retrieval")
@@ -354,17 +402,25 @@ class Agent:
             question = state["question"]
             if not self.retriever:
                 RAG_RETRIEVAL_DOCUMENTS_COUNT.observe(0)
+                self._record_stage("retrieval", state, documents=[])
                 return {"documents": [], "question": question, "source": "vectorstore"}
             documents = self.retriever.invoke(question)
             RAG_RETRIEVAL_DOCUMENTS_COUNT.observe(len(documents))
             logger.info("Retrieved %d documents from vectorstore for question: %s", len(documents), question)
+            self._record_stage(
+                "retrieval",
+                state,
+                transformed_query=question,
+                documents=self._documents_payload(documents),
+            )
             return {"documents": documents, "question": question, "source": "vectorstore","retry_count": state.get("retry_count",0)}
 
     @observe_stage_latency("rerank")
     def _rerank_documents(self, state: GraphState):
-        with self.tracer.start_as_current_span("rerank") as span:
+        with self.tracer.start_as_current_span("rerank"):
             question = state["question"]
             documents = state.get("documents", [])
+            retrieved_documents = documents
 
             if documents and self.reranker:
                 try:
@@ -377,22 +433,14 @@ class Agent:
                 except Exception as e:
                     logger.exception("Rerank failed: %s", e)
 
-            span.set_attribute("reranked_docs_count", len(documents))
-            span.set_attribute(
-                "reranked_docs_content",
-                "\n\n".join(
-                    f"Document {index}: {document.page_content[:500]}"
-                    for index, document in enumerate(documents)
-                ),
-            )
-            span.set_attribute(
-                "reranked_docs_metadata",
-                "\n\n".join(
-                    f"Document {index}: {document.metadata}"
-                    for index, document in enumerate(documents)
-                ),
-            )
             RAG_RERANKED_DOCUMENTS_COUNT.observe(len(documents))
+            self._record_stage(
+                "rerank",
+                state,
+                transformed_query=question,
+                retrieved_documents=self._documents_payload(retrieved_documents),
+                reranked_documents=self._documents_payload(documents),
+            )
 
             return {
                 "documents": documents,
@@ -442,6 +490,7 @@ class Agent:
             documents = state.get("documents", [])
 
             if not documents:
+                self._record_stage("grade_documents", state, documents=[], filtered_documents=[], scores=[])
                 return {"documents": [], "question": question}
 
             docs_text = "\n\n".join([f"Document {i}: {d.page_content}" for i, d in enumerate(documents)])
@@ -481,6 +530,22 @@ class Agent:
                 
                 logger.info("Graded %d documents, %d passed", len(documents), len(filtered_docs))
                 RAG_RETRIEVAL_RELEVANCE_SCORE.observe(len(filtered_docs))
+                serialized_scores = [
+                    {
+                        "document_index": score.document_index,
+                        "binary_score": score.binary_score,
+                    }
+                    if isinstance(score, GradeDocument)
+                    else score
+                    for score in scores
+                ]
+                self._record_stage(
+                    "grade_documents",
+                    state,
+                    documents=self._documents_payload(documents),
+                    scores=serialized_scores,
+                    filtered_documents=self._documents_payload(filtered_docs),
+                )
                 span.set_attribute("grading.documents_count", len(documents))
                 span.set_attribute("grading.passed_count", len(filtered_docs))
                 span.set_attribute(
@@ -523,6 +588,12 @@ class Agent:
             generation = rag_chain.invoke({"context": context_str, "question": state["question"]})
             self._record_llm_call(prompt=formatted_prompt, response_text=str(generation))
             logger.info("Generated answer with %d characters", len(generation))
+            self._record_stage(
+                "generate",
+                state,
+                context_documents=self._documents_payload(state.get("documents", [])),
+                output=generation,
+            )
             return {"documents": state["documents"], "question": state["question"], "generation": generation, "source": state.get("source", "")}
     
     def _after_generate(self, state: GraphState):
@@ -603,33 +674,44 @@ class Agent:
             retry_count = state.get("retry_count", 0) + 1
 
             logger.info("Transformed query attempt %d: %s", retry_count, better_question)
+            self._record_stage(
+                "transform_query",
+                state,
+                transformed_query=str(better_question),
+                retry_count=retry_count,
+            )
             span.set_attribute("transformed_query", str(better_question))
             span.set_attribute("retry_count", retry_count)
             return {
                 "documents": [],
                 "question": better_question,
+                "original_question": state.get("original_question", state["question"]),
                 "retry_count": retry_count,
                 "source": "vectorstore"
             }
 
     def generate_bot_response(self, session_id: str, user_message: str):
         try:
-            inputs = {
-                "question": user_message,
-                "session_id": session_id,
-                "retry_count": 0
-            }
-            
-            final_generation = None
-            
-            for output in self.app.stream(inputs):
-                for node_name, node_state in output.items():
-                    if isinstance(node_state, dict) and "generation" in node_state:
-                        final_generation = node_state["generation"]
-            
-            if final_generation:
-                return final_generation
-            return "I was unable to find an appropriate response."
+            with self.tracer.start_as_current_span("rag_workflow") as span:
+                span.set_attribute("rag.question", user_message)
+                span.set_attribute("rag.session_id", session_id)
+                inputs = {
+                    "question": user_message,
+                    "original_question": user_message,
+                    "session_id": session_id,
+                    "retry_count": 0
+                }
+
+                final_generation = None
+
+                for output in self.app.stream(inputs):
+                    for node_name, node_state in output.items():
+                        if isinstance(node_state, dict) and "generation" in node_state:
+                            final_generation = node_state["generation"]
+
+                if final_generation:
+                    return final_generation
+                return "I was unable to find an appropriate response."
 
         except Exception as e:
             logger.exception("Error in generate_bot_response: %s", e)
@@ -642,43 +724,48 @@ class Agent:
             yield self.generate_bot_response(session_id, user_message)
             return
 
-        state = {
-            "question": user_message,
-            "session_id": session_id,
-            "retry_count": 0,
-        }
-        state.update(self._build_query(state))
-        route = self._route_question(state)
+        with self.tracer.start_as_current_span("rag_workflow") as span:
+            span.set_attribute("rag.question", user_message)
+            span.set_attribute("rag.session_id", session_id)
+            state = {
+                "question": user_message,
+                "original_question": user_message,
+                "session_id": session_id,
+                "retry_count": 0,
+            }
+            state.update(self._build_query(state))
+            route = self._route_question(state)
 
-        if route == "llm":
-            prompt = f"Answer the user query concisely:\nQuestion: {state['question']}\nAnswer:"
-        else:
-            if route == "web-search":
-                state.update(self._web_search(state))
+            if route == "llm":
+                prompt = f"Answer the user query concisely:\nQuestion: {state['question']}\nAnswer:"
             else:
-                state.update(self._retrieve(state))
-                state.update(self._rerank_documents(state))
-                state.update(self._grade_documents(state))
-                if not state.get("documents"):
+                if route == "web-search":
                     state.update(self._web_search(state))
+                else:
+                    state.update(self._retrieve(state))
+                    state.update(self._rerank_documents(state))
+                    state.update(self._grade_documents(state))
+                    if not state.get("documents"):
+                        state.update(self._web_search(state))
 
-            prompt = ChatPromptTemplate.from_template(
-                "Context: {context}\nQuestion: {question}\nAnswer contextually:"
-            ).format(
-                context="\n\n".join(
-                    document.page_content for document in state.get("documents", [])
-                ),
-                question=state["question"],
-            )
+                prompt = ChatPromptTemplate.from_template(
+                    "Context: {context}\nQuestion: {question}\nAnswer contextually:"
+                ).format(
+                    context="\n\n".join(
+                        document.page_content for document in state.get("documents", [])
+                    ),
+                    question=state["question"],
+                )
 
-        chunk_count = 0
-        streamed_content = []
-        for chunk in self.llm.stream(prompt):
-            content = getattr(chunk, "content", "")
-            if content:
-                chunk_count += 1
-                streamed_content.append(content)
-                yield content
-        if streamed_content:
-            self._record_llm_call(prompt=prompt, response_text="".join(streamed_content))
-        logger.info("Agent stream finished for session %s with %d chunks", session_id, chunk_count)
+            chunk_count = 0
+            streamed_content = []
+            for chunk in self.llm.stream(prompt):
+                content = getattr(chunk, "content", "")
+                if content:
+                    chunk_count += 1
+                    streamed_content.append(content)
+                    yield content
+            if streamed_content:
+                output = "".join(streamed_content)
+                self._record_llm_call(prompt=prompt, response_text=output)
+            logger.info("Agent stream finished for session %s with %d chunks", session_id, chunk_count)

@@ -26,6 +26,11 @@ data:
         access: proxy
         url: http://prometheus:9090
         isDefault: true
+      - name: Jaeger
+        type: jaeger
+        access: proxy
+        url: http://jaeger:16686
+        editable: false
   grafana-dashboard-provider.yml: |
     apiVersion: 1
     providers:

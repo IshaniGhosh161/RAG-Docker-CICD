@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -37,21 +38,34 @@ def _serialize_value(value):
     return str(value)
 
 
+def _span_identifiers(span) -> dict:
+    context = span.get_span_context()
+    if not context.is_valid:
+        return {
+            "trace_id": None,
+            "span_id": None,
+        }
+    return {
+        "trace_id": format(context.trace_id, "032x"),
+        "span_id": format(context.span_id, "016x"),
+    }
+
+
 class MongoDBSpanExporter(SpanExporter):
     def __init__(self, mongo_uri: str, database_name: str = "chatbot"):
         self.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
         self.collection = self.client[database_name]["telemetry_spans"]
         self.collection.create_index([("trace_id", 1), ("start_time", 1)])
+        self.collection.create_index([("trace_id", 1), ("span_id", 1)], unique=True)
         self.collection.create_index("start_time")
 
     def export(self, spans) -> SpanExportResult:
         documents = []
         for span in spans:
-            context = span.get_span_context()
+            identifiers = _span_identifiers(span)
             documents.append(
                 {
-                    "trace_id": format(context.trace_id, "032x"),
-                    "span_id": format(context.span_id, "016x"),
+                    **identifiers,
                     "parent_span_id": (
                         format(span.parent.span_id, "016x")
                         if span.parent
@@ -117,15 +131,45 @@ def record_telemetry_event(event_type: str, payload: dict) -> None:
         return
     _, collection = _telemetry_event_store
     try:
+        span = trace.get_current_span()
+        identifiers = _span_identifiers(span)
         collection.insert_one(
             {
                 "event_type": event_type,
                 "payload": _serialize_value(payload),
+                **identifiers,
+                "span_name": span.name,
+                "parent_span_id": (
+                    format(span.parent.span_id, "016x")
+                    if span.parent and span.parent.is_valid
+                    else None
+                ),
                 "recorded_at": datetime.now(timezone.utc),
             }
         )
     except Exception:
         logger.exception("Failed to persist telemetry event in MongoDB")
+
+
+def record_rag_stage(stage: str, payload: dict) -> None:
+    """Persist the text produced or consumed by one RAG workflow stage."""
+    span = trace.get_current_span()
+    for key, value in payload.items():
+        if key in {"question", "session_id"}:
+            continue
+        attribute_value = _serialize_value(value)
+        if not isinstance(attribute_value, (str, int, float, bool)) and attribute_value is not None:
+            attribute_value = json.dumps(attribute_value, ensure_ascii=True)
+        if attribute_value is not None:
+            span.set_attribute(f"rag.{key}", attribute_value)
+    span.set_attribute("rag.stage", stage)
+    record_telemetry_event(
+        "rag_stage",
+        {
+            "stage": stage,
+            **payload,
+        },
+    )
 
 RAG_QUESTIONS_TOTAL = Counter(
     "rag_questions_total",
@@ -251,9 +295,21 @@ def record_llm_usage(prompt: str | None, response_text: str | None = None) -> No
     RAG_TOKENS_TOTAL.inc(total_tokens)
     RAG_TOKEN_COST_TOTAL.inc(total_cost)
     RAG_LLM_CALLS_TOTAL.inc()
+    span = trace.get_current_span()
+    span.add_event(
+        "llm.call",
+        {
+            "llm.prompt": prompt or "",
+            "llm.response": response_text or "",
+            "llm.prompt_tokens": prompt_tokens,
+            "llm.response_tokens": response_tokens,
+        },
+    )
     record_telemetry_event(
         "llm_usage",
         {
+            "prompt": prompt,
+            "response": response_text,
             "prompt_tokens": prompt_tokens,
             "response_tokens": response_tokens,
             "total_tokens": total_tokens,
@@ -312,6 +368,7 @@ def configure_observability(app: FastAPI) -> None:
             event_collection = event_client[telemetry_database]["telemetry_events"]
             event_collection.create_index("recorded_at")
             event_collection.create_index("event_type")
+            event_collection.create_index([("trace_id", 1), ("span_id", 1), ("recorded_at", 1)])
             _telemetry_event_store = (event_client, event_collection)
             logger.info(
                 "OpenTelemetry spans and events configured for MongoDB database '%s'",
