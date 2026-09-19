@@ -60,7 +60,7 @@ spec:
             - name: HF_EMBEDDING_BATCH_SIZE
               value: "8"
             - name: FAST_MODE
-              value: "true"
+              value: "False"
             - name: OTEL_SERVICE_NAME
               value: rag-chat-api
             - name: OTEL_EXPORTER_OTLP_ENDPOINT

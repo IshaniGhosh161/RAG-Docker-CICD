@@ -280,6 +280,18 @@ class Agent:
             },
         )
 
+    @staticmethod
+    def _set_final_response_attributes(span, *, question: str, stage: str, output: str, source: str, context_documents: list[Document] | None = None):
+        span.set_attribute("rag.question", question)
+        span.set_attribute("rag.stage", stage)
+        span.set_attribute("rag.output", output or "")
+        span.set_attribute("rag.source", source or "")
+        if context_documents is not None:
+            span.set_attribute(
+                "rag.context_documents",
+                Agent._documents_payload(context_documents),
+            )
+
     @observe_stage_latency("build_query")
     def _build_query(self, state: GraphState):
         with self.tracer.start_as_current_span("build_query") as span:
@@ -384,7 +396,7 @@ class Agent:
 
     @observe_stage_latency("llm")
     def _call_llm(self, state: GraphState):
-        with self.tracer.start_as_current_span("call_llm"):
+        with self.tracer.start_as_current_span("call_llm") as span:
             question = state["question"]
             prompt = f"Answer the user query concisely:\nQuestion: {question}\nAnswer:"
             response = self.llm.invoke(prompt)
@@ -393,6 +405,13 @@ class Agent:
                 "call_llm",
                 state,
                 transformed_query=question,
+            )
+            self._set_final_response_attributes(
+                span,
+                question=question,
+                stage="call_llm",
+                output=response.content,
+                source="llm",
             )
             return {"question": question, "generation": response.content, "source": "llm"}
 
@@ -575,10 +594,10 @@ class Agent:
 
     @observe_stage_latency("generate")
     def _generate(self, state: GraphState):
-        with self.tracer.start_as_current_span("generate"):
+        with self.tracer.start_as_current_span("generate") as span:
             prompt_text = self._load_prompt('generate_answer.txt')
             prompt = ChatPromptTemplate.from_template(template=prompt_text)
-            
+
             def format_docs(docs):
                 return "\n\n".join(doc.page_content for doc in docs)
 
@@ -593,6 +612,14 @@ class Agent:
                 state,
                 context_documents=self._documents_payload(state.get("documents", [])),
                 output=generation,
+            )
+            self._set_final_response_attributes(
+                span,
+                question=state.get("question", ""),
+                stage="generate",
+                output=generation,
+                source=state.get("source", ""),
+                context_documents=state.get("documents", []),
             )
             return {"documents": state["documents"], "question": state["question"], "generation": generation, "source": state.get("source", "")}
     
@@ -717,6 +744,18 @@ class Agent:
             logger.exception("Error in generate_bot_response: %s", e)
             return f"Error generating response: {str(e)}"
 
+    def _prepare_fast_mode_generation_state(self, state: GraphState):
+        state.update(self._retrieve(state))
+        state.update(self._rerank_documents(state))
+        state.update(self._grade_documents(state))
+
+        if state.get("documents"):
+            state["source"] = "vectorstore"
+            return state
+
+        state.update(self._web_search(state))
+        return state
+
     def stream_bot_response(self, session_id: str, user_message: str):
         logger.info("Streaming agent response for session %s", session_id)
         if not FAST_MODE:
@@ -737,35 +776,17 @@ class Agent:
             route = self._route_question(state)
 
             if route == "llm":
-                prompt = f"Answer the user query concisely:\nQuestion: {state['question']}\nAnswer:"
+                state.update(self._call_llm(state))
             else:
                 if route == "web-search":
                     state.update(self._web_search(state))
                 else:
-                    state.update(self._retrieve(state))
-                    state.update(self._rerank_documents(state))
-                    state.update(self._grade_documents(state))
-                    if not state.get("documents"):
-                        state.update(self._web_search(state))
+                    state.update(self._prepare_fast_mode_generation_state(state))
+                state.update(self._generate(state))
 
-                prompt = ChatPromptTemplate.from_template(
-                    "Context: {context}\nQuestion: {question}\nAnswer contextually:"
-                ).format(
-                    context="\n\n".join(
-                        document.page_content for document in state.get("documents", [])
-                    ),
-                    question=state["question"],
-                )
+            output = state.get("generation", "")
+            if not output:
+                output = self.generate_bot_response(session_id, user_message)
 
-            chunk_count = 0
-            streamed_content = []
-            for chunk in self.llm.stream(prompt):
-                content = getattr(chunk, "content", "")
-                if content:
-                    chunk_count += 1
-                    streamed_content.append(content)
-                    yield content
-            if streamed_content:
-                output = "".join(streamed_content)
-                self._record_llm_call(prompt=prompt, response_text=output)
-            logger.info("Agent stream finished for session %s with %d chunks", session_id, chunk_count)
+            logger.info("Agent stream finished for session %s with final output length %d", session_id, len(output))
+            yield output

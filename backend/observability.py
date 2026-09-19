@@ -378,5 +378,5 @@ def configure_observability(app: FastAPI) -> None:
             logger.exception("MongoDB telemetry persistence could not be configured")
 
     trace.set_tracer_provider(provider)
-    FastAPIInstrumentor.instrument_app(app)
+    FastAPIInstrumentor.instrument_app(app, exclude_spans=["receive", "send"])
     Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
