@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.46.1.21595",
-      "templateHash": "14106576486505299256"
+      "templateHash": "4653582738902327273"
     }
   },
   "parameters": {
@@ -157,7 +157,7 @@
         "type": "SystemAssigned"
       },
       "sku": {
-        "name": "Basic",
+        "name": "Base",
         "tier": "Free"
       },
       "properties": {

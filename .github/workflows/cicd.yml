@@ -76,6 +76,12 @@ jobs:
       - name: Create Azure resource group
         run: az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
 
+      - name: Register required Azure resource providers
+        run: |
+          az provider register --namespace Microsoft.ContainerService --wait
+          az provider register --namespace Microsoft.OperationalInsights --wait
+          az provider register --namespace Microsoft.Dashboard --wait
+
       - name: Deploy Azure infrastructure with Bicep
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
