@@ -123,9 +123,11 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-01' = {
     apiServerAccessProfile: {
       enablePrivateCluster: false
     }
+    // Azure Workload Identity is disabled because this deployment does not configure an OIDC issuer.
+    // Enabling it requires a valid AKS OIDC issuer and is not necessary for this repo's current deployment model.
     securityProfile: {
       workloadIdentity: {
-        enabled: true
+        enabled: false
       }
     }
   }

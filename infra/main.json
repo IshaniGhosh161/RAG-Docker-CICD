@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.46.1.21595",
-      "templateHash": "4653582738902327273"
+      "templateHash": "13425166384336802956"
     }
   },
   "parameters": {
@@ -194,7 +194,7 @@
         },
         "securityProfile": {
           "workloadIdentity": {
-            "enabled": true
+            "enabled": false
           }
         }
       },
