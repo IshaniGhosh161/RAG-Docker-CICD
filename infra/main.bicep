@@ -40,8 +40,8 @@ param nodeCount int = 2
 @description('AKS node VM size.')
 param vmSize string = 'Standard_D4s_v5'
 
-@description('Kubernetes version to use on AKS.')
-param kubernetesVersion string = '1.30'
+@description('Kubernetes version to use on AKS. Use a version supported in the target Azure region and API version.')
+param kubernetesVersion string = '1.28'
 
 var acrSku = 'Basic'
 var tags = {
@@ -80,7 +80,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   }
 }
 
-resource aks 'Microsoft.ContainerService/managedClusters@2024-03-01' = {
+resource aks 'Microsoft.ContainerService/managedClusters@2023-06-01' = {
   name: aksClusterName
   location: location
   tags: tags

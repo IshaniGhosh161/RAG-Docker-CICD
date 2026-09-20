@@ -429,8 +429,8 @@ az role assignment create `
   --role Contributor `
   --scope "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup" | Out-Null
 
-If the Bicep deployment still fails when creating the ACR pull assignment for AKS, add:
-
+# If role-assignment creation fails later during the Bicep deployment, grant a temporary higher RBAC role.
+# This is not required for normal AKS + ACR + Grafana deployment when the app itself only needs Contributor access.
 az role assignment create `
   --assignee-object-id $spObjectId `
   --assignee-principal-type ServicePrincipal `
@@ -441,20 +441,23 @@ $githubOwner = "<your-github-user>"
 $githubRepo = "<your-repo-name>"
 $branchName = "azure"
 
-$jsonPath = "$env:TEMP\github-federated-credential.json"
+$subject = "repo:IshaniGhosh161@168971196/RAG-Docker-CICD@1344122647:ref:refs/heads/azure"
 
-@"
+$json = @"
 {
   "name": "github-azure-branch",
   "issuer": "https://token.actions.githubusercontent.com",
-  "subject": "repo:$githubOwner/$githubRepo:ref:refs/heads/$branchName",
+  "subject": "$subject",
   "audiences": ["api://AzureADTokenExchange"]
 }
-"@ | Set-Content -Path $jsonPath -Encoding utf8
+"@
+
+$jsonPath = "$env:TEMP\github-federated-credential.json"
+$json | Set-Content -Path $jsonPath -Encoding utf8
 
 az ad app federated-credential create `
   --id $appId `
-  --parameters $jsonPath | Out-Null
+  --parameters $jsonPath
 
 Write-Host "AZURE_CLIENT_ID=$appId"
 Write-Host "AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)"
