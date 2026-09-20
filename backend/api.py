@@ -46,9 +46,9 @@ class MessageRequest(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_agent():
-    from scripts.agent import Agent
+    from scripts.agent2 import MultiAgentSystem
 
-    return Agent("shared")
+    return MultiAgentSystem("shared")
 
 
 def create_app():

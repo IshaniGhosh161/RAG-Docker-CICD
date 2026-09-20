@@ -56,6 +56,13 @@ def test_health_check():
     assert response.json()["status"] == "healthy"
 
 
+def test_multi_agent_system_module_is_available():
+    from scripts.agent2 import MultiAgentSystem
+
+    assert hasattr(MultiAgentSystem, "generate_response")
+    assert hasattr(MultiAgentSystem, "stream_response")
+
+
 def test_prometheus_metrics_endpoint():
     response = api_request("GET", "/metrics")
     assert response.status_code == 200
