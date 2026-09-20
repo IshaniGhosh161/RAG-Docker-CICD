@@ -349,6 +349,8 @@ Run the following Azure CLI commands once.
 
 Important: the resource group must exist before you assign a role at the resource-group scope. Azure does not allow a role assignment on a resource group that does not exist yet. If you prefer, you can assign the role at the subscription scope instead, which avoids the need to create the resource group first.
 
+For this repo, the GitHub OIDC application must also be able to register resource providers such as `Microsoft.ContainerService` and `Microsoft.Dashboard`. That permission is subscription-scoped, so the safest bootstrap is to grant `Contributor` at the subscription scope instead of only on the resource group.
+
 ```bash
 az login
 az account set --subscription "<your-subscription-id>"
@@ -370,19 +372,19 @@ az group create --name "$RESOURCE_GROUP" --location "eastus" >/dev/null
 
 SP_OBJECT_ID=$(az ad sp list --filter "appId eq '$APP_ID'" --query "[0].id" -o tsv)
 
-# Resource-group-scoped assignment (works after RG exists)
+# Recommended for this repo: subscription-scoped Contributor so the app can register providers and deploy AKS/ACR/Grafana.
 az role assignment create \
   --assignee-object-id "$SP_OBJECT_ID" \
   --assignee-principal-type ServicePrincipal \
   --role Contributor \
-  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP" >/dev/null
+  --scope "/subscriptions/$SUBSCRIPTION_ID" >/dev/null
 
-# Alternative: subscription-scoped assignment if you do not want to create the RG first.
+# Resource-group-scoped assignment still works for normal resource deployment, but it is not enough for provider registration actions.
 # az role assignment create \
 #   --assignee-object-id "$SP_OBJECT_ID" \
 #   --assignee-principal-type ServicePrincipal \
 #   --role Contributor \
-#   --scope "/subscriptions/$SUBSCRIPTION_ID" >/dev/null
+#   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP" >/dev/null
 
 GITHUB_OWNER="<your-github-user>"
 GITHUB_REPO="<your-repo-name>"
@@ -422,6 +424,12 @@ $resourceGroup = "rag-chat-rg"
 az group create --name $resourceGroup --location "eastus" | Out-Null
 
 $spObjectId = az ad sp list --filter "appId eq '$appId'" --query "[0].id" -o tsv
+
+az role assignment create `
+  --assignee-object-id $spObjectId `
+  --assignee-principal-type ServicePrincipal `
+  --role Contributor `
+  --scope "/subscriptions/$subscriptionId" | Out-Null
 
 az role assignment create `
   --assignee-object-id $spObjectId `
