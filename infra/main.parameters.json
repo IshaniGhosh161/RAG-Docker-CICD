@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "ragchat"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "acrName": {
+      "value": "ragchatacr2026"
+    },
+    "aksClusterName": {
+      "value": "ragchat-aks"
+    },
+    "logAnalyticsWorkspaceName": {
+      "value": "law-ragchat"
+    },
+    "grafanaName": {
+      "value": "grafana-ragchat"
+    },
+    "nodeCount": {
+      "value": 2
+    },
+    "vmSize": {
+      "value": "Standard_D4s_v5"
+    },
+    "ollamaHost": {
+      "value": "https://ollama.com"
+    },
+    "ollamaModel": {
+      "value": "gpt-oss:20b-cloud"
+    },
+    "mongoConnectionString": {
+      "value": "mongodb+srv://<username>:<password>@cluster0.f5j4e.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+    },
+    "ollamaApiKey": {
+      "value": "<your-ollama-api-key>"
+    },
+    "tavilyApiKey": {
+      "value": "<your-tavily-api-key>"
+    }
+  }
+}

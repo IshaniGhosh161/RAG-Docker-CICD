@@ -329,6 +329,164 @@ Required GitHub repository secrets for the workflow:
 
 The workflow is triggered on pushes and pull requests to `main` and `master`.
 
+## 13A) Azure OIDC setup for GitHub Actions (required once)
+
+The Azure deployment workflow uses GitHub OIDC authentication instead of storing Azure credentials as long-lived secrets in the repo. This is the recommended setup for Azure AKS + ACR + Bicep deployments.
+
+Important:
+
+- The Microsoft Entra app registration and OIDC federation must be created once in Azure.
+- GitHub Actions cannot create this trust automatically in the same way it can create the app deployment files in the repo.
+- The federated credential subject must match the branch that triggers the workflow.
+
+For this repo, the workflow is configured to run on pushes to the `azure` branch, so the subject must be:
+
+```text
+repo:<your-github-user>/<your-repo-name>:ref:refs/heads/azure
+```
+
+Run the following Azure CLI commands once.
+
+Important: the resource group must exist before you assign a role at the resource-group scope. Azure does not allow a role assignment on a resource group that does not exist yet. If you prefer, you can assign the role at the subscription scope instead, which avoids the need to create the resource group first.
+
+```bash
+az login
+az account set --subscription "<your-subscription-id>"
+
+APP_NAME="rag-chat-github-cicd"
+APP_ID=$(az ad app list --display-name "$APP_NAME" --query "[0].appId" -o tsv)
+
+if [ -z "$APP_ID" ]; then
+  APP_ID=$(az ad app create --display-name "$APP_NAME" --query appId -o tsv)
+fi
+
+az ad sp create --id "$APP_ID" >/dev/null
+
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+RESOURCE_GROUP="rag-chat-rg"
+
+# Create the resource group before assigning a resource-group-scoped RBAC role.
+az group create --name "$RESOURCE_GROUP" --location "eastus" >/dev/null
+
+SP_OBJECT_ID=$(az ad sp list --filter "appId eq '$APP_ID'" --query "[0].id" -o tsv)
+
+# Resource-group-scoped assignment (works after RG exists)
+az role assignment create \
+  --assignee-object-id "$SP_OBJECT_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role Contributor \
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP" >/dev/null
+
+# Alternative: subscription-scoped assignment if you do not want to create the RG first.
+# az role assignment create \
+#   --assignee-object-id "$SP_OBJECT_ID" \
+#   --assignee-principal-type ServicePrincipal \
+#   --role Contributor \
+#   --scope "/subscriptions/$SUBSCRIPTION_ID" >/dev/null
+
+GITHUB_OWNER="<your-github-user>"
+GITHUB_REPO="<your-repo-name>"
+BRANCH_NAME="azure"
+
+az ad app federated-credential create \
+  --id "$APP_ID" \
+  --parameters "{
+    \"name\": \"github-azure-branch\",
+    \"issuer\": \"https://token.actions.githubusercontent.com\",
+    \"subject\": \"repo:${GITHUB_OWNER}/${GITHUB_REPO}:ref:refs/heads/${BRANCH_NAME}\",
+    \"audiences\": [\"api://AzureADTokenExchange\"]
+  }" >/dev/null
+
+echo "AZURE_CLIENT_ID=$APP_ID"
+echo "AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)"
+echo "AZURE_SUBSCRIPTION_ID=$SUBSCRIPTION_ID"
+```
+
+In Powershell
+```
+az login
+az account set --subscription "<your-subscription-id>"
+
+$env:APP_NAME = "rag-chat-github-cicd"
+
+$appId = az ad app list --display-name $env:APP_NAME --query "[0].appId" -o tsv
+if (-not $appId) {
+    $appId = az ad app create --display-name $env:APP_NAME --query appId -o tsv
+}
+
+az ad sp create --id $appId | Out-Null
+
+$subscriptionId = az account show --query id -o tsv
+$resourceGroup = "rag-chat-rg"
+
+az group create --name $resourceGroup --location "eastus" | Out-Null
+
+$spObjectId = az ad sp list --filter "appId eq '$appId'" --query "[0].id" -o tsv
+
+az role assignment create `
+  --assignee-object-id $spObjectId `
+  --assignee-principal-type ServicePrincipal `
+  --role Contributor `
+  --scope "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup" | Out-Null
+
+If the Bicep deployment still fails when creating the ACR pull assignment for AKS, add:
+
+az role assignment create `
+  --assignee-object-id $spObjectId `
+  --assignee-principal-type ServicePrincipal `
+  --role "User Access Administrator" `
+  --scope "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup"
+
+$githubOwner = "<your-github-user>"
+$githubRepo = "<your-repo-name>"
+$branchName = "azure"
+
+$jsonPath = "$env:TEMP\github-federated-credential.json"
+
+@"
+{
+  "name": "github-azure-branch",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:$githubOwner/$githubRepo:ref:refs/heads/$branchName",
+  "audiences": ["api://AzureADTokenExchange"]
+}
+"@ | Set-Content -Path $jsonPath -Encoding utf8
+
+az ad app federated-credential create `
+  --id $appId `
+  --parameters $jsonPath | Out-Null
+
+Write-Host "AZURE_CLIENT_ID=$appId"
+Write-Host "AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)"
+Write-Host "AZURE_SUBSCRIPTION_ID=$subscriptionId"
+```
+This ordering matters:
+
+1. Create the Entra app registration and service principal.
+2. Create the resource group (or choose subscription scope instead).
+3. Assign RBAC permissions.
+4. Add the OIDC federation for GitHub Actions.
+5. Only then push to the `azure` branch and let the workflow run.
+
+Then add these values to GitHub repository secrets:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `MONGO_URI`
+- `OLLAMA_API_KEY`
+- `TAVILY_API_KEY`
+- `GRAFANA_SMTP_USER`
+- `GRAFANA_SMTP_PASSWORD`
+
+Do you need `User Access Administrator`?
+
+- For the Azure app/service principal created by GitHub OIDC: no. `Contributor` on the target resource group or subscription is enough for this repo's deployment flow.
+- For the human running the one-time Azure bootstrap commands: yes, you typically need `Owner` or `User Access Administrator` on the subscription so you can create the app registration, create the service principal, assign RBAC roles, and add the federated credential.
+- `User Access Administrator` is only required when the deployment identity itself must create or modify Azure RBAC assignments after the app is already running. This repo does not require that extra role for normal AKS + ACR + Grafana deployment.
+
+This is the one-time Azure identity bootstrap that allows the workflow in `.github/workflows/cicd.yml` to log in with `azure/login@v2` and deploy the app without storing long-lived Azure credentials in the repository.
+
 ## 14) Agent architecture
 
 This project follows a RAG agent pattern built around a LangGraph workflow in `scripts/agent.py`.

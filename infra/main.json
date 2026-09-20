@@ -1,0 +1,288 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "11374293321910656513"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "The Azure region for all resources."
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "ragchat",
+      "metadata": {
+        "description": "Short environment name used in resource names."
+      }
+    },
+    "acrName": {
+      "type": "string",
+      "metadata": {
+        "description": "Globally unique Azure Container Registry name."
+      }
+    },
+    "aksClusterName": {
+      "type": "string",
+      "defaultValue": "[format('aks-{0}', parameters('environmentName'))]",
+      "metadata": {
+        "description": "AKS cluster name."
+      }
+    },
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "defaultValue": "[format('law-{0}', parameters('environmentName'))]",
+      "metadata": {
+        "description": "Log Analytics workspace name."
+      }
+    },
+    "grafanaName": {
+      "type": "string",
+      "defaultValue": "[format('grafana-{0}', parameters('environmentName'))]",
+      "metadata": {
+        "description": "Azure Managed Grafana instance name."
+      }
+    },
+    "mongoConnectionString": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The existing MongoDB connection string to keep using for the same app database."
+      }
+    },
+    "ollamaApiKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Ollama API key if you are using the hosted Ollama service."
+      }
+    },
+    "tavilyApiKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Tavily API key used by web-search retrieval."
+      }
+    },
+    "ollamaHost": {
+      "type": "string",
+      "defaultValue": "http://ollama:11434",
+      "metadata": {
+        "description": "The Ollama host accessible from the cluster."
+      }
+    },
+    "ollamaModel": {
+      "type": "string",
+      "defaultValue": "gpt-oss:20b-cloud",
+      "metadata": {
+        "description": "The exact Ollama model that must remain in use."
+      }
+    },
+    "nodeCount": {
+      "type": "int",
+      "defaultValue": 2,
+      "metadata": {
+        "description": "AKS node count."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D4s_v5",
+      "metadata": {
+        "description": "AKS node VM size."
+      }
+    },
+    "kubernetesVersion": {
+      "type": "string",
+      "defaultValue": "1.30",
+      "metadata": {
+        "description": "Kubernetes version to use on AKS."
+      }
+    }
+  },
+  "variables": {
+    "acrSku": "Basic",
+    "tags": {
+      "application": "rag-chat",
+      "environment": "[parameters('environmentName')]",
+      "managedBy": "bicep"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[parameters('logAnalyticsWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30,
+        "features": {
+          "enableLogAccessUsingOnlyResourcePermissions": true
+        },
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('acrName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "sku": {
+        "name": "[variables('acrSku')]"
+      },
+      "properties": {
+        "adminUserEnabled": true,
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.ContainerService/managedClusters",
+      "apiVersion": "2024-03-01",
+      "name": "[parameters('aksClusterName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "sku": {
+        "name": "Basic",
+        "tier": "Free"
+      },
+      "properties": {
+        "dnsPrefix": "[format('ragchat-{0}', parameters('environmentName'))]",
+        "kubernetesVersion": "[parameters('kubernetesVersion')]",
+        "enableRBAC": true,
+        "nodeResourceGroup": "[format('{0}-aksnodes', resourceGroup().name)]",
+        "agentPoolProfiles": [
+          {
+            "name": "systempool",
+            "count": "[parameters('nodeCount')]",
+            "vmSize": "[parameters('vmSize')]",
+            "osType": "Linux",
+            "mode": "System",
+            "type": "VirtualMachineScaleSets",
+            "maxPods": 110
+          }
+        ],
+        "networkProfile": {
+          "networkPlugin": "azure",
+          "loadBalancerSku": "standard",
+          "networkPolicy": "azure"
+        },
+        "addonProfiles": {
+          "omsagent": {
+            "enabled": true,
+            "config": {
+              "logAnalyticsWorkspaceResourceID": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            }
+          }
+        },
+        "apiServerAccessProfile": {
+          "enablePrivateCluster": false
+        },
+        "securityProfile": {
+          "workloadIdentity": {
+            "enabled": true
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Dashboard/grafana",
+      "apiVersion": "2022-08-01",
+      "name": "[parameters('grafanaName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "publicNetworkAccess": "Enabled",
+        "zoneRedundancy": "Disabled"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ContainerService/managedClusters', parameters('aksClusterName')), 'AcrPull')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksClusterName')), '2024-03-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksClusterName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "acrLoginServer": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-07-01').loginServer]"
+    },
+    "acrName": {
+      "type": "string",
+      "value": "[parameters('acrName')]"
+    },
+    "aksName": {
+      "type": "string",
+      "value": "[parameters('aksClusterName')]"
+    },
+    "aksResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksClusterName'))]"
+    },
+    "aksPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksClusterName')), '2024-03-01', 'full').identity.principalId]"
+    },
+    "managedGrafanaName": {
+      "type": "string",
+      "value": "[parameters('grafanaName')]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+    },
+    "mongoConnectionString": {
+      "type": "string",
+      "value": "[parameters('mongoConnectionString')]"
+    },
+    "ollamaHost": {
+      "type": "string",
+      "value": "[parameters('ollamaHost')]"
+    },
+    "ollamaModel": {
+      "type": "string",
+      "value": "[parameters('ollamaModel')]"
+    },
+    "ollamaApiKey": {
+      "type": "string",
+      "value": "[parameters('ollamaApiKey')]"
+    },
+    "tavilyApiKey": {
+      "type": "string",
+      "value": "[parameters('tavilyApiKey')]"
+    }
+  }
+}

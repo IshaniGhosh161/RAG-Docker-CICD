@@ -1,27 +1,21 @@
-name: CI
+name: CI/CD
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    branches: [azure]
+  # pull_request:
+  #   branches: [main, master]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  id-token: write
+
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Free Disk Space (Ubuntu)
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIR"
-          docker image prune --all --force
-
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -39,8 +33,6 @@ jobs:
             -r requirements.txt \
             -r requirements-dev.txt
 
-      # Create the FAISS index using Hugging Face Nomic embeddings.
-      # Ollama is NOT required here.
       - name: Create FAISS index from data
         env:
           HF_EMBEDDING_MODEL: nomic-ai/nomic-embed-text-v1.5
@@ -54,88 +46,117 @@ jobs:
       - name: Run tests
         run: python -m pytest tests -q
 
-      # Build the Docker image and start the complete stack.
-      # Hugging Face models are downloaded during Docker build.
-      - name: Build and start Docker Compose services
-        env:
-          MONGO_URI: ${{ secrets.MONGO_URI }}
-          OLLAMA_HOST: https://ollama.com
-          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
-          OLLAMA_MODEL: gpt-oss:20b-cloud
-          HF_EMBEDDING_MODEL: nomic-ai/nomic-embed-text-v1.5
-          HF_EMBEDDING_DEVICE: cpu
-          HF_EMBEDDING_BATCH_SIZE: 8
-          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-        run: |
-          docker compose up -d --build
+  azure-deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      RESOURCE_GROUP: rag-chat-rg
+      LOCATION: eastus
+      ACR_NAME: ragchatacr2026
+      AKS_NAME: ragchat-aks
+      NAMESPACE: rag-chat
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - name: Verify running API and frontend
-        run: |
-          for attempt in {1..60}; do
-
-            api_ready=false
-            frontend_ready=false
-
-            if curl \
-              --fail \
-              --silent \
-              http://localhost:5000/api/health \
-              > /dev/null; then
-              api_ready=true
-            fi
-
-            if curl \
-              --fail \
-              --silent \
-              http://localhost:5000/ \
-              > /dev/null; then
-              frontend_ready=true
-            fi
-
-            if [ "$api_ready" = true ] && [ "$frontend_ready" = true ]; then
-              echo "API and frontend are ready."
-              exit 0
-            fi
-
-            echo "Waiting for application..."
-            sleep 2
-          done
-
-          echo "Application failed to become ready."
-
-          docker compose ps
-          docker compose logs
-
-          exit 1
-
-      - name: Log in to Docker Hub
-        if: github.event_name == 'push'
-        uses: docker/login-action@v3
+      - name: Azure login with OIDC
+        uses: azure/login@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Push image to Docker Hub
-        if: github.event_name == 'push'
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-        run: |
-          docker tag chatbot-rag:latest \
-            "$DOCKERHUB_USERNAME/chatbot-rag:latest"
+      - name: Create Azure resource group
+        run: az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
 
-          docker push \
-            "$DOCKERHUB_USERNAME/chatbot-rag:latest"
-
-      - name: Stop Docker Compose services
-        if: always()
+      - name: Deploy Azure infrastructure with Bicep
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
-          OLLAMA_HOST: https://ollama.com
           OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
-          OLLAMA_MODEL: gpt-oss:20b-cloud
-          HF_EMBEDDING_MODEL: nomic-ai/nomic-embed-text-v1.5
-          HF_EMBEDDING_DEVICE: cpu
-          HF_EMBEDDING_BATCH_SIZE: 8
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          OLLAMA_HOST: https://ollama.com
+          OLLAMA_MODEL: gpt-oss:20b-cloud
         run: |
-          docker compose down --volumes
+          az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/main.bicep \
+            --parameters \
+              environmentName=ragchat \
+              location=eastus \
+              acrName="$ACR_NAME" \
+              aksClusterName="$AKS_NAME" \
+              logAnalyticsWorkspaceName=law-ragchat \
+              grafanaName=grafana-ragchat \
+              nodeCount=2 \
+              vmSize=Standard_D4s_v5 \
+              ollamaHost="$OLLAMA_HOST" \
+              ollamaModel="$OLLAMA_MODEL" \
+              mongoConnectionString="$MONGO_URI" \
+              ollamaApiKey="$OLLAMA_API_KEY" \
+              tavilyApiKey="$TAVILY_API_KEY" \
+            --query properties.outputs
+
+      - name: Build and push container image to ACR
+        run: |
+          az acr build \
+            --registry "$ACR_NAME" \
+            --image rag-chat:latest \
+            .
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$AKS_NAME" \
+            --overwrite-existing
+
+      - name: Create namespace and image pull secret
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          GRAFANA_SMTP_USER: ${{ secrets.GRAFANA_SMTP_USER }}
+          GRAFANA_SMTP_PASSWORD: ${{ secrets.GRAFANA_SMTP_PASSWORD }}
+        run: |
+          kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
+          ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+          ACR_USERNAME=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)
+
+          kubectl -n "$NAMESPACE" create secret docker-registry acr-secret \
+            --docker-server="$ACR_LOGIN_SERVER" \
+            --docker-username="$ACR_USERNAME" \
+            --docker-password="$ACR_PASSWORD" \
+            --docker-email=no-reply@example.com \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl -n "$NAMESPACE" create secret generic rag-secrets \
+            --from-literal=MONGO_URI="$MONGO_URI" \
+            --from-literal=OLLAMA_API_KEY="$OLLAMA_API_KEY" \
+            --from-literal=TAVILY_API_KEY="$TAVILY_API_KEY" \
+            --from-literal=GRAFANA_SMTP_USER="$GRAFANA_SMTP_USER" \
+            --from-literal=GRAFANA_SMTP_PASSWORD="$GRAFANA_SMTP_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy application to AKS
+        run: |
+          ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+          cp k8s/azure/api.yaml /tmp/api.yaml
+          sed -i "s#<ACR_LOGIN_SERVER>#$ACR_LOGIN_SERVER#g" /tmp/api.yaml
+          kubectl -n "$NAMESPACE" apply -f /tmp/api.yaml
+          kubectl -n "$NAMESPACE" apply -f k8s/azure/configmap.yaml
+          kubectl -n "$NAMESPACE" apply -f k8s/azure/observability.yaml
+
+      - name: Verify AKS deployment health
+        run: |
+          kubectl -n "$NAMESPACE" rollout status deployment/api --timeout=180s
+          kubectl -n "$NAMESPACE" get svc api -n "$NAMESPACE"
+          kubectl -n "$NAMESPACE" get pods
