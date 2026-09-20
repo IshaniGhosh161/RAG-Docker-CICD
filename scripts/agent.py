@@ -228,9 +228,9 @@ class Agent:
             "grade_generation",
             self._grade_generation_v_documents_and_question,
             {
-                "not supported": "call_llm",
+                "not supported": "web_search",
                 "useful": END,
-                "not useful": "call_llm",
+                "not useful": "web_search",
             },
         )
         
@@ -637,6 +637,12 @@ class Agent:
                 "generation": state.get("generation", ""),
                 "source": state.get("source", "")
             }
+    @staticmethod
+    def _grade_generation_fallback_route(result: str) -> str:
+        if result in {"not supported", "not useful"}:
+            return "web-search"
+        return result
+
     def _grade_generation_v_documents_and_question(self, state: GraphState):
         with self.tracer.start_as_current_span("grade_generation_v_documents_and_question") as span:
             class GradeHallucinations(BaseModel):
@@ -684,8 +690,8 @@ class Agent:
                 span.set_attribute("grading.relevancy", str(a_score.binary_score))
                 if a_score.binary_score.lower() == "yes":
                     return "useful"
-                return "not useful"
-            return "not supported"
+                return self._grade_generation_fallback_route("not useful")
+            return self._grade_generation_fallback_route("not supported")
 
     def _transform_query(self, state: GraphState):
         with self.tracer.start_as_current_span("transform_query") as span:

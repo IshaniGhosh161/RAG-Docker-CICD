@@ -219,9 +219,9 @@ class MultiAgentSystem:
             "grade_generation",
             self.eval_agent.check_hallucinations,
             {
-                "not supported": "call_llm",
+                "not supported": "web_search",
                 "useful": END,
-                "not useful": "call_llm",
+                "not useful": "web_search",
             },
         )
 
