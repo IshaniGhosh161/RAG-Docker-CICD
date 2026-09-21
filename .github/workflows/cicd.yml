@@ -83,12 +83,6 @@ jobs:
           az provider register --namespace Microsoft.Dashboard --wait
 
       - name: Deploy Azure infrastructure with Bicep
-        env:
-          MONGO_URI: ${{ secrets.MONGO_URI }}
-          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
-          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-          OLLAMA_HOST: https://ollama.com
-          OLLAMA_MODEL: gpt-oss:20b-cloud
         run: |
           az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
@@ -101,11 +95,7 @@ jobs:
               logAnalyticsWorkspaceName=law-ragchat \
               grafanaName=grafana-ragchat \
               nodeCount=2 \
-              ollamaHost="$OLLAMA_HOST" \
-              ollamaModel="$OLLAMA_MODEL" \
-              mongoConnectionString="$MONGO_URI" \
-              ollamaApiKey="$OLLAMA_API_KEY" \
-              tavilyApiKey="$TAVILY_API_KEY" \
+              vmSize=Standard_D2s_v7 \
             --query properties.outputs
 
       - name: Build and push container image to ACR
