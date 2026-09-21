@@ -45,7 +45,6 @@ spec:
     - name: http
       port: 9090
       targetPort: http
-  type: LoadBalancer
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -67,8 +66,6 @@ spec:
       containers:
         - name: mongodb-exporter
           image: percona/mongodb_exporter:0.53
-          command:
-            - /bin/mongodb_exporter
           args:
             - --compatible-mode
             - --mongodb.direct-connect=false
@@ -144,7 +141,6 @@ spec:
     - name: otlp-http
       port: 4318
       targetPort: otlp-http
-  type: LoadBalancer
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -228,4 +224,3 @@ spec:
     - name: http
       port: 3000
       targetPort: http
-  type: LoadBalancer

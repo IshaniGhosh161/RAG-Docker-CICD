@@ -1,0 +1,215 @@
+{
+  "title": "RAG Chat API Overview",
+  "uid": "rag-chat-api",
+  "schemaVersion": 39,
+  "version": 5,
+  "refresh": "15s",
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "API up",
+      "gridPos": {"h": 7, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "up{job=\"rag-chat-api\",instance=\"api:5000\"}", "legendFormat": "API"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{"type": "value", "options": {"0": {"text": "DOWN"}, "1": {"text": "UP"}}}],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total requests",
+      "description": "Total number of RAG questions asked",
+      "gridPos": {"h": 7, "w": 4, "x": 4, "y": 0},
+      "targets": [{"expr": "sum(rag_questions_total{job=\"rag-chat-api\",instance=\"api:5000\"})", "legendFormat": "questions"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Web search requests",
+      "description": "Number of questions that triggered a web search",
+      "gridPos": {"h": 7, "w": 4, "x": 8, "y": 0},
+      "targets": [{"expr": "sum(rag_web_search_total{job=\"rag-chat-api\",instance=\"api:5000\"})", "legendFormat": "web-search"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "LLM calls",
+      "description": "Number of times the LLM was invoked",
+      "gridPos": {"h": 7, "w": 4, "x": 12, "y": 0},
+      "targets": [{"expr": "sum(rag_llm_calls_total{job=\"rag-chat-api\",instance=\"api:5000\"})", "legendFormat": "llm-calls"}],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Total token usage",
+      "description": "Total estimated tokens consumed by the RAG API",
+      "gridPos": {"h": 7, "w": 4, "x": 16, "y": 0},
+      "targets": [{"expr": "sum(increase(rag_tokens_total{job=\"rag-chat-api\",instance=\"api:5000\"}[1h]))", "legendFormat": "tokens"}],
+      "fieldConfig": {"defaults": {"unit": "tokens", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 10000}]}}, "overrides": []}
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Total cost",
+      "description": "Total estimated token spend in USD",
+      "gridPos": {"h": 7, "w": 4, "x": 20, "y": 0},
+      "targets": [{"expr": "sum(increase(rag_token_cost_total{job=\"rag-chat-api\",instance=\"api:5000\"}[1h]))", "legendFormat": "cost"}],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []}
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Token usage over time",
+      "description": "Estimated tokens used per query over time",
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "sum(rate(rag_tokens_per_question_sum{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) by (job)", "legendFormat": "tokens/sec"}],
+      "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Response latency",
+      "description": "RAG answer latency (p95)",
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 8},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(rag_response_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) by (le))", "legendFormat": "p95 latency"}],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "MongoDB exporter up",
+      "description": "Whether Prometheus can scrape the live MongoDB exporter",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 15},
+      "targets": [{"expr": "up{job=\"mongodb\"}", "legendFormat": "mongodb"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{"type": "value", "options": {"0": {"text": "DOWN"}, "1": {"text": "UP"}}}],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Chatbot users",
+      "description": "Current number of users in chatbot.users",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 15},
+      "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"users\"}", "legendFormat": "users"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Chatbot sessions",
+      "description": "Current number of sessions in chatbot.sessions",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 15},
+      "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"sessions\"}", "legendFormat": "sessions"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Chatbot messages",
+      "description": "Current number of messages in chatbot.messages",
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 15},
+      "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"messages\"}", "legendFormat": "messages"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 100}]}}, "overrides": []}
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Chatbot application data size",
+      "description": "Live data size for users, sessions, and messages only; telemetry collections are excluded",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+      "targets": [{"expr": "sum(mongodb_collstats_storageStats_size{job=\"mongodb\",database=\"chatbot\",collection=~\"users|sessions|messages\"})", "legendFormat": "application data"}],
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Chatbot Messages",
+      "description": "Number of messages currently stored in chatbot.messages over time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+      "targets": [{"expr": "mongodb_collstats_storageStats_count{job=\"mongodb\",database=\"chatbot\",collection=\"messages\"}", "legendFormat": "messages"}],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "HTTP requests by route",
+      "description": "Request rate grouped by API route",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 30},
+      "targets": [{"expr": "sum by (handler) (rate(http_requests_total{job=\"rag-chat-api\"}[5m]))", "legendFormat": "{{handler}}"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "HTTP status code rate",
+      "description": "Incoming request distribution by HTTP status code",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 30},
+      "targets": [{"expr": "sum by (status) (rate(http_requests_total{job=\"rag-chat-api\"}[5m]))", "legendFormat": "{{status}}"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "p95 HTTP latency by route",
+      "description": "API latency by endpoint for the slowest requests",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 38},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (handler, le) (rate(http_request_duration_seconds_bucket{job=\"rag-chat-api\"}[5m])))", "legendFormat": "{{handler}}"}],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "5xx error rate",
+      "description": "Server-side errors over time",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 38},
+      "targets": [{"expr": "sum(rate(http_requests_total{job=\"rag-chat-api\",status=\"5xx\"}[5m])) or vector(0)", "legendFormat": "5xx requests"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "RAG route distribution",
+      "description": "Which datasource the router selected for incoming questions",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 46},
+      "targets": [{"expr": "sum by (route) (rate(rag_route_decisions_total{job=\"rag-chat-api\",instance=\"api:5000\"}[5m]))", "legendFormat": "{{route}}"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Reranked and relevant documents per query",
+      "description": "Average documents remaining after reranking compared with average relevant documents",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 46},
+      "targets": [
+        {"expr": "(sum(rate(rag_reranked_documents_count_sum{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) / sum(rate(rag_reranked_documents_count_count{job=\"rag-chat-api\",instance=\"api:5000\"}[5m]))) unless on() (sum(rate(rag_reranked_documents_count_count{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) == 0) or vector(0)", "legendFormat": "reranked docs/query"},
+        {"expr": "sum(rate(rag_retrieval_relevance_score_sum{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])) / sum(rate(rag_retrieval_relevance_score_count{job=\"rag-chat-api\",instance=\"api:5000\"}[5m]))", "legendFormat": "relevant docs/query"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "RAG stage latency (p95)",
+      "description": "95th percentile time spent in each agent stage",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 54},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (stage, le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:5000\"}[5m])))", "legendFormat": "{{stage}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+    }
+  ]
+}

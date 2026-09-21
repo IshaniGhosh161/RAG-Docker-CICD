@@ -9,4 +9,4 @@ resources:
 configMapGenerator:
   - name: grafana-dashboard
     files:
-      - api-overview.json=../../monitoring/grafana/dashboards/api-overview.json
+      - api-overview.json=api-overview.json

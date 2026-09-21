@@ -148,8 +148,7 @@ jobs:
           cp k8s/azure/api.yaml /tmp/api.yaml
           sed -i "s#<ACR_LOGIN_SERVER>#$ACR_LOGIN_SERVER#g" /tmp/api.yaml
           kubectl -n "$NAMESPACE" apply -f /tmp/api.yaml
-          kubectl -n "$NAMESPACE" apply -f k8s/azure/configmap.yaml
-          kubectl -n "$NAMESPACE" apply -f k8s/azure/observability.yaml
+          kubectl -n "$NAMESPACE" apply -k k8s/azure
 
       - name: Verify AKS deployment health
         run: |
