@@ -470,6 +470,8 @@ az ad app federated-credential create `
 Write-Host "AZURE_CLIENT_ID=$appId"
 Write-Host "AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)"
 Write-Host "AZURE_SUBSCRIPTION_ID=$subscriptionId"
+
+az provider register --namespace Microsoft.OperationsManagement
 ```
 This ordering matters:
 

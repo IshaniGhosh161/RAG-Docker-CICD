@@ -16,24 +16,6 @@ param logAnalyticsWorkspaceName string = 'law-${environmentName}'
 @description('Azure Managed Grafana instance name.')
 param grafanaName string = 'grafana-${environmentName}'
 
-@description('The existing MongoDB connection string to keep using for the same app database.')
-@secure()
-param mongoConnectionString string
-
-@description('Ollama API key if you are using the hosted Ollama service.')
-@secure()
-param ollamaApiKey string = ''
-
-@description('Tavily API key used by web-search retrieval.')
-@secure()
-param tavilyApiKey string = ''
-
-@description('The Ollama host accessible from the cluster.')
-param ollamaHost string = 'http://ollama:11434'
-
-@description('The exact Ollama model that must remain in use.')
-param ollamaModel string = 'gpt-oss:20b-cloud'
-
 @description('AKS node count.')
 param nodeCount int = 2
 

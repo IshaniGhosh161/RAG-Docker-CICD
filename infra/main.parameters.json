@@ -25,21 +25,6 @@
     },
     "vmSize": {
       "value": "Standard_D2s_v7"
-    },
-    "ollamaHost": {
-      "value": "https://ollama.com"
-    },
-    "ollamaModel": {
-      "value": "gpt-oss:20b-cloud"
-    },
-    "mongoConnectionString": {
-      "value": "mongodb+srv://<username>:<password>@cluster0.f5j4e.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-    },
-    "ollamaApiKey": {
-      "value": "<your-ollama-api-key>"
-    },
-    "tavilyApiKey": {
-      "value": "<your-tavily-api-key>"
     }
   }
 }
