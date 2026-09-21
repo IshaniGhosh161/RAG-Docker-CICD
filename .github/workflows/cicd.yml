@@ -145,10 +145,9 @@ jobs:
       - name: Deploy application to AKS
         run: |
           ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
-          cp k8s/azure/api.yaml /tmp/api.yaml
-          sed -i "s#<ACR_LOGIN_SERVER>#$ACR_LOGIN_SERVER#g" /tmp/api.yaml
-          kubectl -n "$NAMESPACE" apply -f /tmp/api.yaml
-          kubectl -n "$NAMESPACE" apply -k k8s/azure
+          cd k8s/azure
+          sed -i "s#<ACR_LOGIN_SERVER>#$ACR_LOGIN_SERVER#g" api.yaml
+          kubectl -n "$NAMESPACE" apply -k .
 
       - name: Verify AKS deployment health
         run: |
