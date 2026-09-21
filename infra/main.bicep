@@ -41,7 +41,7 @@ param nodeCount int = 2
 param vmSize string = 'Standard_D4s_v5'
 
 @description('Kubernetes version to use on AKS. Use a version supported in the target Azure region and API version.')
-param kubernetesVersion string = '1.28'
+param kubernetesVersion string = '1.36'
 
 var acrSku = 'Basic'
 var tags = {
@@ -167,8 +167,3 @@ output aksResourceId string = aks.id
 output aksPrincipalId string = aks.identity.principalId
 output managedGrafanaName string = managedGrafana.name
 output logAnalyticsWorkspaceId string = logAnalytics.id
-output mongoConnectionString string = mongoConnectionString
-output ollamaHost string = ollamaHost
-output ollamaModel string = ollamaModel
-output ollamaApiKey string = ollamaApiKey
-output tavilyApiKey string = tavilyApiKey
