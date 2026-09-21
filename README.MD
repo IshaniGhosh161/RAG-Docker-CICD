@@ -634,7 +634,8 @@ If you want the shortest route to a working setup, follow these steps exactly:
 
 This is the working setup path for this repository and is the path the project is built around.
 
-#### Run on Kubernetes
+
+#### Run on Local Kubernetes
 Stop the Compose stack first if it is running, because both runtimes use the same local ports:
 
 ```powershell
@@ -731,6 +732,94 @@ kubectl -n rag-chat port-forward service/jaeger 16686:16686
 ```
 
 Open the Grafana dashboard at `http://localhost:3000/d/rag-chat-api/`. Open Jaeger at `http://localhost:16686`, select the `rag-chat-api` service, and click **Find Traces** after making API requests. Prometheus is available at `http://localhost:9090` for direct metric queries.
+
+#### Azure AKS public URLs after GitHub Actions deployment
+
+When the app is deployed in Azure through `.github/workflows/cicd.yml`, the public endpoints are exposed through the Kubernetes `LoadBalancer` services. Run:
+
+```powershell
+kubectl -n rag-chat get svc
+```
+
+This shows the public IPs for the deployed services:
+
+- `api` -> app URL: `http://<EXTERNAL-IP>`
+- `grafana` -> dashboard URL: `http://<EXTERNAL-IP>:3000`
+- `jaeger` -> trace UI URL: `http://<EXTERNAL-IP>:16686`
+- `prometheus` -> metrics URL: `http://<EXTERNAL-IP>:9090`
+
+You can also fetch the Azure Managed Grafana endpoint directly:
+
+```powershell
+az grafana show `
+  --resource-group rag-chat-rg `
+  --name grafana-ragchat `
+  --query properties.endpoint `
+  -o tsv
+```
+
+For Jaeger and Prometheus, the Azure services are configured as public `LoadBalancer`s, so the UIs can be opened directly from the external IP instead of using port-forwarding:
+
+```powershell
+kubectl -n rag-chat get svc jaeger
+kubectl -n rag-chat get svc prometheus
+```
+
+Then open:
+
+```text
+http://<JAEGER_EXTERNAL_IP>:16686
+http://<PROMETHEUS_EXTERNAL_IP>:9090
+```
+
+The app is also available from its external IP with Swagger UI at:
+
+```text
+http://<API_EXTERNAL_IP>/docs
+```
+
+#### Required Azure role assignments to view Grafana and Prometheus
+
+Grafana in Azure Managed Grafana uses Azure RBAC. If the page shows `No Grafana Role Assigned`, the user must be assigned a Grafana role on the Grafana resource instance.
+
+Find the Grafana resource ID:
+
+```powershell
+$grafanaId = az grafana show `
+  --resource-group rag-chat-rg `
+  --name grafana-ragchat `
+  --query id `
+  -o tsv
+
+$grafanaId
+```
+
+Then assign a role to your Microsoft Entra user:
+
+```powershell
+az role assignment create `
+  --assignee "<your-user-object-id-or-email>" `
+  --role "Grafana Viewer" `
+  --scope $grafanaId
+```
+
+For admin access, use:
+
+```powershell
+az role assignment create `
+  --assignee "<your-user-object-id-or-email>" `
+  --role "Grafana Admin" `
+  --scope $grafanaId
+```
+
+Prometheus is a Kubernetes `LoadBalancer` service, so public access is controlled by AKS networking and the service exposure. If you cannot reach it, validate the service and check that Azure is assigning a public IP:
+
+```powershell
+kubectl -n rag-chat get svc prometheus
+az network public-ip list -g "rag-chat-rg" -o table
+```
+
+If needed, set the service to a public `LoadBalancer` and wait for Azure to provision the external IP.
 
 To stop the Kubernetes application later:
 
