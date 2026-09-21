@@ -750,6 +750,24 @@ kubectl -n rag-chat get svc
 kubectl -n rag-chat get pods
 ```
 
+If there is kube config msmatch issue:
+```powershell
+az login
+az account set --subscription "<your-subscription-id-or-name>"
+
+az aks list -o table
+
+az aks get-credentials `
+  --resource-group rag-chat-rg `
+  --name ragchat-aks `
+  --overwrite-existing
+
+kubectl config get-contexts
+kubectl config current-context
+kubectl -n rag-chat get svc
+kubectl -n rag-chat get pods
+```
+
 The app URL is available through the `api` service when it has an external IP:
 
 ```powershell
