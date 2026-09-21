@@ -38,7 +38,7 @@ param ollamaModel string = 'gpt-oss:20b-cloud'
 param nodeCount int = 2
 
 @description('AKS node VM size.')
-param vmSize string = 'Standard_D4s_v7'
+param vmSize string = 'Standard_D2s_v7'
 
 @description('Kubernetes version to use on AKS. Use a version supported in the target Azure region and API version.')
 param kubernetesVersion string = '1.36'

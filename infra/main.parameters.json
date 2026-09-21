@@ -24,7 +24,7 @@
       "value": 2
     },
     "vmSize": {
-      "value": "Standard_D4s_v7"
+      "value": "Standard_D2s_v7"
     },
     "ollamaHost": {
       "value": "https://ollama.com"
