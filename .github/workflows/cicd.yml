@@ -101,7 +101,6 @@ jobs:
               logAnalyticsWorkspaceName=law-ragchat \
               grafanaName=grafana-ragchat \
               nodeCount=2 \
-              vmSize=Standard_D4s_v5 \
               ollamaHost="$OLLAMA_HOST" \
               ollamaModel="$OLLAMA_MODEL" \
               mongoConnectionString="$MONGO_URI" \

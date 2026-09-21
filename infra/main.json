@@ -93,7 +93,7 @@
     },
     "vmSize": {
       "type": "string",
-      "defaultValue": "Standard_D4s_v5",
+      "defaultValue": "Standard_D4s_v7",
       "metadata": {
         "description": "AKS node VM size."
       }
