@@ -13,9 +13,6 @@ param aksClusterName string = 'aks-${environmentName}'
 @description('Log Analytics workspace name.')
 param logAnalyticsWorkspaceName string = 'law-${environmentName}'
 
-@description('Azure Managed Grafana instance name.')
-param grafanaName string = 'grafana-${environmentName}'
-
 @description('AKS node count.')
 param nodeCount int = 2
 
@@ -115,22 +112,6 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-01' = {
   }
 }
 
-resource managedGrafana 'Microsoft.Dashboard/grafana@2022-08-01' = {
-  name: grafanaName
-  location: location
-  tags: tags
-  sku: {
-    name: 'Standard'
-  }
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    publicNetworkAccess: 'Enabled'
-    zoneRedundancy: 'Disabled'
-  }
-}
-
 // Grant AKS managed identity pull access to ACR so the cluster can pull the app image without manual portal changes.
 resource acrPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(acr.id, aks.id, 'AcrPull')
@@ -147,5 +128,4 @@ output acrName string = acr.name
 output aksName string = aks.name
 output aksResourceId string = aks.id
 output aksPrincipalId string = aks.identity.principalId
-output managedGrafanaName string = managedGrafana.name
 output logAnalyticsWorkspaceId string = logAnalytics.id

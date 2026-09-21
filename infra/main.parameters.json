@@ -17,9 +17,6 @@
     "logAnalyticsWorkspaceName": {
       "value": "law-ragchat"
     },
-    "grafanaName": {
-      "value": "grafana-ragchat"
-    },
     "nodeCount": {
       "value": 2
     },

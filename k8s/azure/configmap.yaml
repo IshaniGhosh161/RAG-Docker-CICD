@@ -13,7 +13,7 @@ data:
   RETRIEVAL_K: "10"
   RERANK_TOP_N: "5"
   ENABLE_RERANKER: "True"
-  OLLAMA_HOST: "http://ollama:11434"
+  OLLAMA_HOST: "https://ollama.com"
   OLLAMA_MODEL: "gpt-oss:20b-cloud"
   OTEL_SERVICE_NAME: "rag-chat-api"
   MONGO_TELEMETRY_DATABASE: "chatbot"

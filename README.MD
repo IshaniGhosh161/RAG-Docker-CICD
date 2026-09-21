@@ -349,7 +349,7 @@ Run the following Azure CLI commands once.
 
 Important: the resource group must exist before you assign a role at the resource-group scope. Azure does not allow a role assignment on a resource group that does not exist yet. If you prefer, you can assign the role at the subscription scope instead, which avoids the need to create the resource group first.
 
-For this repo, the GitHub OIDC application must also be able to register resource providers such as `Microsoft.ContainerService` and `Microsoft.Dashboard`. That permission is subscription-scoped, so the safest bootstrap is to grant `Contributor` at the subscription scope instead of only on the resource group.
+For this repo, the GitHub OIDC application must also be able to register resource providers such as `Microsoft.ContainerService` and `Microsoft.OperationalInsights`. That permission is subscription-scoped, so the safest bootstrap is to grant `Contributor` at the subscription scope instead of only on the resource group.
 
 ```bash
 az login
@@ -834,9 +834,7 @@ az role assignment create `
   --scope $grafanaId
 ```
 
-If you later decide to expose Grafana, Jaeger, or Prometheus publicly, increase the Azure public IP quota or change the Service type back to `LoadBalancer` and wait for Azure to allocate the IPs.
-
-To stop the Kubernetes application later:
+If you later decide to expose Grafana, Jaeger, or Prometheus publicly, increase the Azure public IP quota or change the Service type back to `LoadBalancer` and wait for Azure to allocate the IPs
 
 ```powershell
 kubectl delete namespace rag-chat

@@ -39,6 +39,7 @@ metadata:
   name: prometheus
   namespace: rag-chat
 spec:
+  type: ClusterIP
   selector:
     app: prometheus
   ports:
@@ -88,6 +89,7 @@ metadata:
   name: mongodb-exporter
   namespace: rag-chat
 spec:
+  type: ClusterIP
   selector:
     app: mongodb-exporter
   ports:
@@ -129,6 +131,7 @@ metadata:
   name: jaeger
   namespace: rag-chat
 spec:
+  type: ClusterIP
   selector:
     app: jaeger
   ports:
@@ -218,6 +221,7 @@ metadata:
   name: grafana
   namespace: rag-chat
 spec:
+  type: ClusterIP
   selector:
     app: grafana
   ports:

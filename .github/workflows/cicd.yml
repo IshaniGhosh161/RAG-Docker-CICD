@@ -80,7 +80,6 @@ jobs:
         run: |
           az provider register --namespace Microsoft.ContainerService --wait
           az provider register --namespace Microsoft.OperationalInsights --wait
-          az provider register --namespace Microsoft.Dashboard --wait
 
       - name: Deploy Azure infrastructure with Bicep
         run: |
@@ -93,7 +92,6 @@ jobs:
               acrName="$ACR_NAME" \
               aksClusterName="$AKS_NAME" \
               logAnalyticsWorkspaceName=law-ragchat \
-              grafanaName=grafana-ragchat \
               nodeCount=2 \
               vmSize=Standard_D2s_v7 \
             --query properties.outputs

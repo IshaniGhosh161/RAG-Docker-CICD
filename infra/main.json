@@ -43,13 +43,6 @@
         "description": "Log Analytics workspace name."
       }
     },
-    "grafanaName": {
-      "type": "string",
-      "defaultValue": "[format('grafana-{0}', parameters('environmentName'))]",
-      "metadata": {
-        "description": "Azure Managed Grafana instance name."
-      }
-    },
     "mongoConnectionString": {
       "type": "securestring",
       "metadata": {
@@ -203,23 +196,6 @@
       ]
     },
     {
-      "type": "Microsoft.Dashboard/grafana",
-      "apiVersion": "2022-08-01",
-      "name": "[parameters('grafanaName')]",
-      "location": "[parameters('location')]",
-      "tags": "[variables('tags')]",
-      "sku": {
-        "name": "Standard"
-      },
-      "identity": {
-        "type": "SystemAssigned"
-      },
-      "properties": {
-        "publicNetworkAccess": "Enabled",
-        "zoneRedundancy": "Disabled"
-      }
-    },
-    {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
       "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
@@ -255,10 +231,6 @@
     "aksPrincipalId": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksClusterName')), '2023-06-01', 'full').identity.principalId]"
-    },
-    "managedGrafanaName": {
-      "type": "string",
-      "value": "[parameters('grafanaName')]"
     },
     "logAnalyticsWorkspaceId": {
       "type": "string",
