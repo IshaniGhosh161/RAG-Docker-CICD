@@ -11,7 +11,7 @@
       "type": "stat",
       "title": "API up",
       "gridPos": {"h": 7, "w": 4, "x": 0, "y": 0},
-      "targets": [{"expr": "up{job=\"rag-chat-api\",instance=\"api:80\"}", "legendFormat": "API"}],
+      "targets": [{"expr": "min(up{job=\"rag-chat-api\"})", "legendFormat": "API"}],
       "fieldConfig": {
         "defaults": {
           "mappings": [{"type": "value", "options": {"0": {"text": "DOWN"}, "1": {"text": "UP"}}}],
@@ -26,7 +26,7 @@
       "title": "Total requests",
       "description": "Total number of RAG questions asked",
       "gridPos": {"h": 7, "w": 4, "x": 4, "y": 0},
-      "targets": [{"expr": "sum(rag_questions_total{job=\"rag-chat-api\",instance=\"api:80\"})", "legendFormat": "questions"}],
+      "targets": [{"expr": "sum(increase(rag_questions_total{job=\"rag-chat-api\"}[$__range]))", "legendFormat": "questions"}],
       "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
     },
     {
@@ -35,7 +35,7 @@
       "title": "Web search requests",
       "description": "Number of questions that triggered a web search",
       "gridPos": {"h": 7, "w": 4, "x": 8, "y": 0},
-      "targets": [{"expr": "sum(rag_web_search_total{job=\"rag-chat-api\",instance=\"api:80\"})", "legendFormat": "web-search"}],
+      "targets": [{"expr": "sum(increase(rag_web_search_total{job=\"rag-chat-api\"}[$__range]))", "legendFormat": "web-search"}],
       "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
     },
     {
@@ -44,7 +44,7 @@
       "title": "LLM calls",
       "description": "Number of times the LLM was invoked",
       "gridPos": {"h": 7, "w": 4, "x": 12, "y": 0},
-      "targets": [{"expr": "sum(rag_llm_calls_total{job=\"rag-chat-api\",instance=\"api:80\"})", "legendFormat": "llm-calls"}],
+      "targets": [{"expr": "sum(increase(rag_llm_calls_total{job=\"rag-chat-api\"}[$__range]))", "legendFormat": "llm-calls"}],
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
     {
@@ -53,7 +53,7 @@
       "title": "Total token usage",
       "description": "Total estimated tokens consumed by the RAG API",
       "gridPos": {"h": 7, "w": 4, "x": 16, "y": 0},
-      "targets": [{"expr": "sum(increase(rag_tokens_total{job=\"rag-chat-api\",instance=\"api:80\"}[1h]))", "legendFormat": "tokens"}],
+      "targets": [{"expr": "sum(increase(rag_tokens_total{job=\"rag-chat-api\"}[$__range]))", "legendFormat": "tokens"}],
       "fieldConfig": {"defaults": {"unit": "tokens", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 10000}]}}, "overrides": []}
     },
     {
@@ -62,7 +62,7 @@
       "title": "Total cost",
       "description": "Total estimated token spend in USD",
       "gridPos": {"h": 7, "w": 4, "x": 20, "y": 0},
-      "targets": [{"expr": "sum(increase(rag_token_cost_total{job=\"rag-chat-api\",instance=\"api:80\"}[1h]))", "legendFormat": "cost"}],
+      "targets": [{"expr": "sum(increase(rag_token_cost_total{job=\"rag-chat-api\"}[$__range]))", "legendFormat": "cost"}],
       "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []}
     },
     {
@@ -71,7 +71,7 @@
       "title": "Token usage over time",
       "description": "Estimated tokens used per query over time",
       "gridPos": {"h": 7, "w": 12, "x": 0, "y": 8},
-      "targets": [{"expr": "sum(rate(rag_tokens_per_question_sum{job=\"rag-chat-api\",instance=\"api:80\"}[5m])) by (job)", "legendFormat": "tokens/sec"}],
+      "targets": [{"expr": "sum(rate(rag_tokens_per_question_sum{job=\"rag-chat-api\"}[5m])) by (job)", "legendFormat": "tokens/sec"}],
       "fieldConfig": {"defaults": {"unit": "tokens"}, "overrides": []}
     },
     {
@@ -80,7 +80,7 @@
       "title": "Response latency",
       "description": "RAG answer latency (p95)",
       "gridPos": {"h": 7, "w": 12, "x": 12, "y": 8},
-      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(rag_response_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:80\"}[5m])) by (le))", "legendFormat": "p95 latency"}],
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(rag_response_latency_seconds_bucket{job=\"rag-chat-api\"}[5m])) by (le))", "legendFormat": "p95 latency"}],
       "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
     },
     {
@@ -185,7 +185,7 @@
       "title": "RAG route distribution",
       "description": "Which datasource the router selected for incoming questions",
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 46},
-      "targets": [{"expr": "sum by (route) (rate(rag_route_decisions_total{job=\"rag-chat-api\",instance=\"api:80\"}[5m]))", "legendFormat": "{{route}}"}],
+      "targets": [{"expr": "sum by (route) (rate(rag_route_decisions_total{job=\"rag-chat-api\"}[5m]))", "legendFormat": "{{route}}"}],
       "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}
     },
     {
@@ -195,8 +195,8 @@
       "description": "Average documents remaining after reranking compared with average relevant documents",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 46},
       "targets": [
-        {"expr": "(sum(rate(rag_reranked_documents_count_sum{job=\"rag-chat-api\",instance=\"api:80\"}[5m])) / sum(rate(rag_reranked_documents_count_count{job=\"rag-chat-api\",instance=\"api:80\"}[5m]))) unless on() (sum(rate(rag_reranked_documents_count_count{job=\"rag-chat-api\",instance=\"api:80\"}[5m])) == 0) or vector(0)", "legendFormat": "reranked docs/query"},
-        {"expr": "sum(rate(rag_retrieval_relevance_score_sum{job=\"rag-chat-api\",instance=\"api:80\"}[5m])) / sum(rate(rag_retrieval_relevance_score_count{job=\"rag-chat-api\",instance=\"api:80\"}[5m]))", "legendFormat": "relevant docs/query"}
+        {"expr": "(sum(rate(rag_reranked_documents_count_sum{job=\"rag-chat-api\"}[5m])) / sum(rate(rag_reranked_documents_count_count{job=\"rag-chat-api\"}[5m]))) unless on() (sum(rate(rag_reranked_documents_count_count{job=\"rag-chat-api\"}[5m])) == 0) or vector(0)", "legendFormat": "reranked docs/query"},
+        {"expr": "sum(rate(rag_retrieval_relevance_score_sum{job=\"rag-chat-api\"}[5m])) / sum(rate(rag_retrieval_relevance_score_count{job=\"rag-chat-api\"}[5m]))", "legendFormat": "relevant docs/query"}
       ],
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
     },
@@ -207,7 +207,7 @@
       "description": "95th percentile time spent in each agent stage",
       "gridPos": {"h": 9, "w": 24, "x": 0, "y": 54},
       "targets": [
-        {"expr": "histogram_quantile(0.95, sum by (stage, le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\",instance=\"api:80\"}[5m])))", "legendFormat": "{{stage}}"}
+        {"expr": "histogram_quantile(0.95, sum by (stage, le) (rate(rag_stage_latency_seconds_bucket{job=\"rag-chat-api\"}[5m])))", "legendFormat": "{{stage}}"}
       ],
       "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
     }

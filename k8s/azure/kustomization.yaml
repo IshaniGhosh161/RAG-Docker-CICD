@@ -10,3 +10,5 @@ configMapGenerator:
   - name: grafana-dashboard
     files:
       - api-overview.json=api-overview.json
+    options:
+      disableNameSuffixHash: true

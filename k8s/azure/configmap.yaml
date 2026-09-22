@@ -32,8 +32,32 @@ data:
     scrape_configs:
       - job_name: rag-chat-api
         metrics_path: /metrics
-        static_configs:
-          - targets: [api:80]
+
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - rag-chat
+
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: api
+
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: keep
+            regex: Running
+
+          - source_labels: [__meta_kubernetes_pod_ip]
+            action: replace
+            target_label: __address__
+            regex: (.+)
+            replacement: $1:5000
+
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
       - job_name: mongodb
         metrics_path: /metrics
         static_configs:
