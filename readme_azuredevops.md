@@ -141,27 +141,25 @@ After creation, you will land on the project dashboard.
 
 ## 7) Connect this repository to Azure DevOps
 
-You must connect the repo before creating the pipeline.
+To ensure that changes you make in GitHub are automatically deployed to Azure, it is recommended to connect your GitHub repository directly to the pipeline rather than importing a static copy into Azure Repos.
 
-### Option A: Use GitHub
+### Recommended: Direct GitHub Connection (Automatic Sync)
 
-1. In Azure DevOps project, click Repos
-2. Click Import repository
-3. Select GitHub
-4. Authorize GitHub access
-5. Select the repository for this project
-6. Import it
+When you create the pipeline (see Section 14), you will link it directly to GitHub. This means Azure DevOps will pull the latest code from your GitHub repo every time the pipeline runs.
 
-### Option B: Use Azure Repos
+**Benefits:**
+- No need to push code to two different places.
+- Automatic triggers: pushing to the `azure` branch on GitHub can automatically start the deployment.
+- Your GitHub repo remains the single source of truth.
 
-If your repo is already in Azure Repos:
+### Alternative: Import to Azure Repos (Static Copy)
 
-1. Click Repos
-2. Choose Files
-3. Click Import Repository
-4. Select the repo source
+If you prefer to have a copy of the code inside Azure DevOps:
+1. In Azure DevOps project, click Repos $\rightarrow$ Import repository.
+2. Select GitHub and authorize access.
+3. Select the repository and import it.
 
-After import, the repository is available in Azure DevOps.
+*Note: If you import, changes in GitHub will NOT automatically sync to Azure DevOps. You will have to push changes to both platforms.*
 
 ---
 
@@ -330,15 +328,16 @@ Now you are ready to create the pipeline.
 
 1. In Azure DevOps, click Pipelines
 2. Click New pipeline
-3. Select Azure Repos Git
-4. Choose the repository you imported
-5. Select Existing Azure Pipelines YAML file
-6. Choose the file path:
+3. Select GitHub
+4. Authorize Azure DevOps to access your GitHub account
+5. Select the repository for this project
+6. Select Existing Azure Pipelines YAML file
+7. Choose the file path:
    
    [azure-pipeline.yml](azure-pipeline.yml)
 
-7. Click Continue
-8. Review the pipeline and click Save
+8. Click Continue
+9. Review the pipeline and click Save
 
 The pipeline is now in Azure DevOps.
 
