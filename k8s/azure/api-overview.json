@@ -45,7 +45,7 @@
       "description": "Number of times the LLM was invoked",
       "gridPos": {"h": 7, "w": 4, "x": 12, "y": 0},
       "targets": [{"expr": "sum(increase(rag_llm_calls_total{job=\"rag-chat-api\"}[$__range]))", "legendFormat": "llm-calls"}],
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}
     },
     {
       "id": 5,
