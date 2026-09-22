@@ -358,6 +358,14 @@ After the pipeline is created, run it.
 
 This starts the pipeline and runs all stages.
 
+If error occurred for permission:
+$subscriptionId = az account show --query id -o tsv
+$spObjectId = <"fetch from the error">
+az role assignment create `
+  --assignee-object-id $spObjectId `
+  --assignee-principal-type ServicePrincipal `
+  --role "User Access Administrator" `
+  --scope "/subscriptions/$subscriptionId"
 ---
 
 ## 16) Understand what the pipeline does
