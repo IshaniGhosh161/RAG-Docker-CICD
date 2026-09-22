@@ -231,7 +231,7 @@ The expected service connection name is:
 3. Click Service connections
 4. Click New service connection
 5. Choose Azure Resource Manager
-6. Select Service principal (automatic) is the easiest option
+6. Select App registration (automatic) is the easiest option
 7. Choose your Azure subscription
 8. Select the correct tenant
 9. Give it the exact name:
