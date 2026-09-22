@@ -12,17 +12,25 @@ parameters:
     default: true
 
 variables:
-  pythonVersion: '3.12'
+- group: rag-chat-secrets
+- name: pythonVersion
+  value: '3.12'
 
   # Azure
-  RESOURCE_GROUP: 'rag-chat-rg'
-  LOCATION: 'eastus'
-  ACR_NAME: 'ragchatacr2026'
-  AKS_NAME: 'ragchat-aks'
-  NAMESPACE: 'rag-chat'
+- name: RESOURCE_GROUP
+  value: 'rag-chat-rg'
+- name: LOCATION
+  value: 'eastus'
+- name: ACR_NAME
+  value: 'ragchatacr2026'
+- name: AKS_NAME
+  value: 'ragchat-aks'
+- name: NAMESPACE
+  value: 'rag-chat'
 
   # Azure DevOps service connection
-  AZURE_SERVICE_CONNECTION: 'azure-ragchat'
+- name: AZURE_SERVICE_CONNECTION
+  value: 'azure-ragchat'
 
 stages:
 
