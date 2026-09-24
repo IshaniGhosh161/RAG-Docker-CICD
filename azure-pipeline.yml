@@ -12,25 +12,25 @@ parameters:
     default: true
 
 variables:
-- group: rag-chat-secrets
-- name: pythonVersion
-  value: '3.12'
+  - group: rag-chat-secrets
+  - name: pythonVersion
+    value: '3.12'
 
   # Azure
-- name: RESOURCE_GROUP
-  value: 'rag-chat-rg'
-- name: LOCATION
-  value: 'eastus'
-- name: ACR_NAME
-  value: 'ragchatacr2026'
-- name: AKS_NAME
-  value: 'ragchat-aks'
-- name: NAMESPACE
-  value: 'rag-chat'
+  - name: RESOURCE_GROUP
+    value: 'rag-chat-rg'
+  - name: LOCATION
+    value: 'eastus'
+  - name: ACR_NAME
+    value: 'ragchatacr2026'
+  - name: AKS_NAME
+    value: 'ragchat-aks'
+  - name: NAMESPACE
+    value: 'rag-chat'
 
   # Azure DevOps service connection
-- name: AZURE_SERVICE_CONNECTION
-  value: 'azure-ragchat'
+  - name: AZURE_SERVICE_CONNECTION
+    value: 'azure-ragchat'
 
 stages:
 
@@ -89,73 +89,32 @@ stages:
 
   jobs:
   - job: Deploy
-    displayName: Deploy to AKS
+    displayName: Provision Infrastructure & Deploy App
     timeoutInMinutes: 60
-
     pool:
       vmImage: ubuntu-latest
 
     steps:
-
     - checkout: self
       displayName: Check out repository
 
     - task: AzureCLI@2
-      displayName: Azure login and deployment
+      displayName: Provision Azure Infrastructure (Bicep)
       inputs:
         azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-
           set -e
 
-          echo "Azure account:"
-          az account show
+          echo "==> Creating Resource Group..."
+          az group create --name "$(RESOURCE_GROUP)" --location "$(LOCATION)"
 
-    - task: AzureCLI@2
-      displayName: Create Azure resource group
-      inputs:
-        azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
+          echo "==> Registering Resource Providers..."
+          az provider register --namespace Microsoft.ContainerService --wait
+          az provider register --namespace Microsoft.OperationalInsights --wait
 
-          set -e
-
-          az group create \
-            --name "$(RESOURCE_GROUP)" \
-            --location "$(LOCATION)"
-
-
-    - task: AzureCLI@2
-      displayName: Register Azure resource providers
-      inputs:
-        azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-
-          set -e
-
-          az provider register \
-            --namespace Microsoft.ContainerService \
-            --wait
-
-          az provider register \
-            --namespace Microsoft.OperationalInsights \
-            --wait
-
-    - task: AzureCLI@2
-      displayName: Deploy Azure infrastructure with Bicep
-      inputs:
-        azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-
-          set -e
-
+          echo "==> Deploying Bicep Template..."
           az deployment group create \
             --resource-group "$(RESOURCE_GROUP)" \
             --template-file infra/main.bicep \
@@ -166,146 +125,93 @@ stages:
               aksClusterName="$(AKS_NAME)" \
               logAnalyticsWorkspaceName=law-ragchat \
               nodeCount=2 \
-              vmSize=Standard_D2s_v7 \
+              vmSize=Standard_D2s_v5 \
             --query properties.outputs
 
-
     - task: AzureCLI@2
-      displayName: Build and push Docker image to ACR
+      displayName: Build and Push Container Image
       inputs:
         azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-
           set -e
 
           az acr login --name "$(ACR_NAME)"
+          
+          IMAGE_URI="$(ACR_NAME).azurecr.io/rag-chat:$(Build.BuildId)"
+          IMAGE_LATEST="$(ACR_NAME).azurecr.io/rag-chat:latest"
 
-          docker build \
-            -t "$(ACR_NAME).azurecr.io/rag-chat:latest" \
-            .
-
-          docker push \
-            "$(ACR_NAME).azurecr.io/rag-chat:latest"
-
+          docker build -t "$IMAGE_URI" -t "$IMAGE_LATEST" .
+          docker push "$IMAGE_URI"
+          docker push "$IMAGE_LATEST"
 
     - task: AzureCLI@2
-      displayName: Get AKS credentials
+      displayName: Configure Kubernetes & Secrets
       inputs:
         azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-
           set -e
 
+          echo "==> Fetching AKS Credentials..."
           az aks get-credentials \
             --resource-group "$(RESOURCE_GROUP)" \
             --name "$(AKS_NAME)" \
             --overwrite-existing
 
-    - task: AzureCLI@2
-      displayName: Create Kubernetes secrets
-      inputs:
-        azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
+          echo "==> Creating Namespace..."
+          kubectl create namespace "$(NAMESPACE)" --dry-run=client -o yaml | kubectl apply -f -
 
-          set -e
-
-          kubectl create namespace "$(NAMESPACE)" \
-            --dry-run=client \
-            -o yaml | kubectl apply -f -
-
-
-          # Get ACR information
-
-          ACR_LOGIN_SERVER=$(az acr show \
-            --name "$(ACR_NAME)" \
-            --query loginServer \
-            -o tsv)
-
-          ACR_USERNAME=$(az acr credential show \
-            --name "$(ACR_NAME)" \
-            --query username \
-            -o tsv)
-
-          ACR_PASSWORD=$(az acr credential show \
-            --name "$(ACR_NAME)" \
-            --query 'passwords[0].value' \
-            -o tsv)
-
-
-          # Create ACR pull secret
+          echo "==> Provisioning ImagePull Secrets..."
+          ACR_LOGIN_SERVER=$(az acr show --name "$(ACR_NAME)" --query loginServer -o tsv)
+          ACR_USERNAME=$(az acr credential show --name "$(ACR_NAME)" --query username -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name "$(ACR_NAME)" --query 'passwords[0].value' -o tsv)
 
           kubectl -n "$(NAMESPACE)" create secret docker-registry acr-secret \
             --docker-server="$ACR_LOGIN_SERVER" \
             --docker-username="$ACR_USERNAME" \
             --docker-password="$ACR_PASSWORD" \
             --docker-email=no-reply@example.com \
-            --dry-run=client \
-            -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -f -
 
-
-          # Create application secrets
-
+          echo "==> Provisioning Application Secrets..."
           kubectl -n "$(NAMESPACE)" create secret generic rag-secrets \
-            --from-literal=MONGO_URI="$(MONGO_URI)" \
-            --from-literal=OLLAMA_API_KEY="$(OLLAMA_API_KEY)" \
-            --from-literal=TAVILY_API_KEY="$(TAVILY_API_KEY)" \
-            --from-literal=GRAFANA_SMTP_USER="$(GRAFANA_SMTP_USER)" \
-            --from-literal=GRAFANA_SMTP_PASSWORD="$(GRAFANA_SMTP_PASSWORD)" \
-            --dry-run=client \
-            -o yaml | kubectl apply -f -
-
-    - task: AzureCLI@2
-      displayName: Deploy application to AKS
-      inputs:
-        azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-
-          set -e
-
-          ACR_LOGIN_SERVER=$(az acr show \
-            --name "$(ACR_NAME)" \
-            --query loginServer \
-            -o tsv)
-
-          cd k8s/azure
-
-          sed -i \
-            "s#<ACR_LOGIN_SERVER>#$ACR_LOGIN_SERVER#g" \
-            api.yaml
-
-          kubectl -n "$(NAMESPACE)" apply -k .
-
-    - task: AzureCLI@2
-      displayName: Verify AKS deployment health
-      inputs:
-        azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-
-          set -e
-
-          kubectl -n "$(NAMESPACE)" \
-            rollout status deployment/api \
-            --timeout=180s
-
-          echo "Service:"
-          kubectl -n "$(NAMESPACE)" get svc api
-
-          echo "Pods:"
-          kubectl -n "$(NAMESPACE)" get pods
-
+            --from-literal=MONGO_URI="$MONGO_URI" \
+            --from-literal=OLLAMA_API_KEY="$OLLAMA_API_KEY" \
+            --from-literal=TAVILY_API_KEY="$TAVILY_API_KEY" \
+            --from-literal=GRAFANA_SMTP_USER="$GRAFANA_SMTP_USER" \
+            --from-literal=GRAFANA_SMTP_PASSWORD="$GRAFANA_SMTP_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
       env:
         MONGO_URI: $(MONGO_URI)
         OLLAMA_API_KEY: $(OLLAMA_API_KEY)
         TAVILY_API_KEY: $(TAVILY_API_KEY)
         GRAFANA_SMTP_USER: $(GRAFANA_SMTP_USER)
         GRAFANA_SMTP_PASSWORD: $(GRAFANA_SMTP_PASSWORD)
+
+    - task: AzureCLI@2
+      displayName: Deploy & Verify AKS Application
+      inputs:
+        azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -e
+
+          ACR_LOGIN_SERVER=$(az acr show --name "$(ACR_NAME)" --query loginServer -o tsv)
+
+          cd k8s/azure
+          sed -i "s#<ACR_LOGIN_SERVER>#$ACR_LOGIN_SERVER#g" api.yaml
+
+          kubectl -n "$(NAMESPACE)" apply -k .
+
+          echo "==> Checking Deployment Rollout..."
+          kubectl -n "$(NAMESPACE)" rollout status deployment/api --timeout=180s
+
+          echo "==> Service Status:"
+          kubectl -n "$(NAMESPACE)" get svc api
+
+          echo "==> Pods Status:"
+          kubectl -n "$(NAMESPACE)" get pods
