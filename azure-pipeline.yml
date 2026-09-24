@@ -125,7 +125,7 @@ stages:
               aksClusterName="$(AKS_NAME)" \
               logAnalyticsWorkspaceName=law-ragchat \
               nodeCount=2 \
-              vmSize=Standard_D2s_v5 \
+              vmSize=Standard_D2s_v7 \
             --query properties.outputs
 
     - task: AzureCLI@2
